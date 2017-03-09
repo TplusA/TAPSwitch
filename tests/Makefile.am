@@ -38,7 +38,13 @@ AM_CXXFLAGS = $(CXXWARNINGS)
 LIBS += $(CPPCUTTER_LIBS)
 
 check_LTLIBRARIES = \
+    test_audiopath.la \
     test_dbus_handlers.la
+
+test_audiopath_la_SOURCES = test_audiopath.cc
+test_audiopath_la_LIBADD = $(top_builddir)/src/libaudiopath.la
+test_audiopath_la_CFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CFLAGS)
+test_audiopath_la_CXXFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CXXFLAGS)
 
 test_dbus_handlers_la_SOURCES = \
     test_dbus_handlers.cc mock_expectation.hh \

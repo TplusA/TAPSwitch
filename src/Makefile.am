@@ -21,7 +21,7 @@ ACLOCAL_AMFLAGS = -I ../m4
 bin_PROGRAMS = tapswitch
 
 tapswitch_SOURCES = \
-    tapswitch.cc \
+    tapswitch.cc audiopath.hh dbus_proxy_wrapper.hh \
     messages.h messages.c messages_glib.h messages_glib.c \
     messages_dbus.c messages_dbus.h \
     dbus_iface.c dbus_iface.h dbus_handlers.h dbus_handlers.hh \
@@ -38,11 +38,17 @@ AM_CFLAGS = $(CWARNINGS)
 AM_CXXFLAGS = $(CXXWARNINGS)
 
 noinst_LTLIBRARIES = \
+    libaudiopath.la \
     libdbus_handlers.la \
     libaudiopath_dbus.la \
     libdebug_dbus.la
 
 tapswitch_LDADD = $(noinst_LTLIBRARIES) $(TAPSWITCH_DEPENDENCIES_LIBS)
+
+libaudiopath_la_SOURCES = \
+    audiopath.cc audiopath.hh dbus_proxy_wrapper.hh
+libaudiopath_la_CFLAGS = $(AM_CFLAGS)
+libaudiopath_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 libdbus_handlers_la_SOURCES = \
     dbus_handlers.h dbus_handlers.hh dbus_handlers.cc \
