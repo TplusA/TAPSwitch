@@ -70,4 +70,3 @@ void test_dummy()
 }
 
 /*!@}*/
-
