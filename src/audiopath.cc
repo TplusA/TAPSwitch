@@ -73,7 +73,7 @@ void AudioPath::Paths::add_source(AudioPath::Source &&source)
 }
 
 std::pair<const AudioPath::Source *, const AudioPath::Player *>
-AudioPath::Paths::lookup(const char *source_id)
+AudioPath::Paths::lookup(const char *source_id) const
 {
     auto source(sources_.find(source_id));
 

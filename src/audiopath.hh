@@ -108,7 +108,7 @@ class Paths
     void add_player(Player &&player);
     void add_source(Source &&source);
 
-    std::pair<const Source *, const Player *> lookup(const char *source_id);
+    std::pair<const Source *, const Player *> lookup(const char *source_id) const;
 
   private:
     template <typename T>
