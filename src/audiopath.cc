@@ -72,18 +72,25 @@ void AudioPath::Paths::add_source(AudioPath::Source &&source)
     add_item(std::move(source));
 }
 
-std::pair<const AudioPath::Source *, const AudioPath::Player *>
-AudioPath::Paths::lookup(const char *source_id) const
+const AudioPath::Source *
+AudioPath::Paths::lookup_source(const std::string &source_id) const
 {
     auto source(sources_.find(source_id));
+    return (source != sources_.end()) ? &source->second : nullptr;
+}
 
-    if(source == sources_.end())
+std::pair<const AudioPath::Source *, const AudioPath::Player *>
+AudioPath::Paths::lookup_path(const std::string &source_id) const
+{
+    const auto *source(lookup_source(source_id));
+
+    if(source == nullptr)
         return std::make_pair(nullptr, nullptr);
 
-    auto player(players_.find(source->second.player_id_));
+    auto player(players_.find(source->player_id_));
 
     if(player == players_.end())
-        return std::make_pair(&source->second, nullptr);
+        return std::make_pair(source, nullptr);
     else
-        return std::make_pair(&source->second, &player->second);
+        return std::make_pair(source, &player->second);
 }

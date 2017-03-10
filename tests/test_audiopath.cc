@@ -110,14 +110,31 @@ namespace dbus_handlers_tests
 void test_lookup_source_in_empty_paths_returns_null()
 {
     AudioPath::Paths paths;
+    cppcut_assert_null(paths.lookup_source("src"));
+}
 
-    const auto ap(paths.lookup("src"));
+void test_lookup_nonexistent_source_in_paths_with_player_of_same_name_returns_null()
+{
+    AudioPath::Paths paths;
+
+    paths.add_player(std::move(
+        AudioPath::Player("foo", "Foo player",
+                          DBus::mk_proxy<AudioPath::Player::PType>("dbus.player",
+                                                                   "/dbus/player"))));
+    cppcut_assert_null(paths.lookup_source("foo"));
+}
+
+void test_lookup_path_in_empty_paths_returns_null()
+{
+    AudioPath::Paths paths;
+
+    const auto ap(paths.lookup_path("src"));
 
     cppcut_assert_null(ap.first);
     cppcut_assert_null(ap.second);
 }
 
-void test_lookup_nonexistent_source_returns_null()
+void test_lookup_path_for_nonexistent_source_returns_null()
 {
     AudioPath::Paths paths;
 
@@ -130,10 +147,13 @@ void test_lookup_nonexistent_source_returns_null()
                           DBus::mk_proxy<AudioPath::Source::PType>("dbus.source",
                                                                    "/dbus/source"))));
 
-    const auto ap(paths.lookup("src"));
+    const auto ap(paths.lookup_path("src"));
 
     cppcut_assert_null(ap.first);
     cppcut_assert_null(ap.second);
+
+    cppcut_assert_not_null(paths.lookup_source("s1"));
+    cppcut_assert_null(paths.lookup_source("src"));
 }
 
 void test_lookup_source_without_player_returns_only_source()
@@ -145,7 +165,7 @@ void test_lookup_source_without_player_returns_only_source()
                           DBus::mk_proxy<AudioPath::Source::PType>("dbus.source",
                                                                    "/dbus/source"))));
 
-    const auto ap(paths.lookup("src"));
+    const auto ap(paths.lookup_path("src"));
 
     cppcut_assert_not_null(ap.first);
     cppcut_assert_equal("src", ap.first->id_.c_str());
@@ -165,7 +185,7 @@ void test_add_player_then_source()
                           DBus::mk_proxy<AudioPath::Player::PType>("dbus.player",
                                                                    "/dbus/player"))));
 
-    const auto ap(paths.lookup("s1"));
+    const auto ap(paths.lookup_path("s1"));
 
     cppcut_assert_not_null(ap.first);
     cppcut_assert_equal("s1", ap.first->id_.c_str());
@@ -194,7 +214,7 @@ void test_add_source_then_player()
                           DBus::mk_proxy<AudioPath::Source::PType>("dbus.source",
                                                                    "/dbus/source"))));
 
-    const auto ap(paths.lookup("s1"));
+    const auto ap(paths.lookup_path("s1"));
 
     cppcut_assert_not_null(ap.first);
     cppcut_assert_equal("s1", ap.first->id_.c_str());
@@ -208,6 +228,77 @@ void test_add_source_then_player()
     cppcut_assert_equal("Test player", ap.second->name_.c_str());
     cppcut_assert_equal("dbus.player:/dbus/player",
                         ap.second->get_dbus_proxy().get()->const_string());
+}
+
+void test_add_player_twice_updates_dbus_proxy_only()
+{
+    AudioPath::Paths paths;
+
+    paths.add_source(std::move(
+        AudioPath::Source("s1", "Test source", "p1",
+                          DBus::mk_proxy<AudioPath::Source::PType>("dbus.source",
+                                                                   "/dbus/source"))));
+
+    paths.add_player(std::move(
+        AudioPath::Player("p1", "Test player",
+                          DBus::mk_proxy<AudioPath::Player::PType>("dbus.player",
+                                                                   "/dbus/player"))));
+
+    const auto ap_first(paths.lookup_path("s1"));
+
+    cppcut_assert_not_null(ap_first.first);
+    cppcut_assert_not_null(ap_first.second);
+    cppcut_assert_equal("p1", ap_first.second->id_.c_str());
+    cppcut_assert_equal("Test player", ap_first.second->name_.c_str());
+    cppcut_assert_equal("dbus.player:/dbus/player",
+                        ap_first.second->get_dbus_proxy().get()->const_string());
+
+    paths.add_player(std::move(
+        AudioPath::Player("p1", "Funky Player",
+                          DBus::mk_proxy<AudioPath::Player::PType>("dbus.funky",
+                                                                   "/dbus/funky"))));
+
+    const auto ap_second(paths.lookup_path("s1"));
+
+    cppcut_assert_not_null(ap_second.first);
+    cppcut_assert_not_null(ap_second.second);
+    cppcut_assert_equal("p1", ap_second.second->id_.c_str());
+    cppcut_assert_equal("Test player", ap_second.second->name_.c_str());
+    cppcut_assert_equal("dbus.funky:/dbus/funky",
+                        ap_second.second->get_dbus_proxy().get()->const_string());
+}
+
+void test_add_source_twice_updates_dbus_proxy_only()
+{
+    AudioPath::Paths paths;
+
+    paths.add_source(std::move(
+        AudioPath::Source("s1", "Test source", "p1",
+                          DBus::mk_proxy<AudioPath::Source::PType>("dbus.source",
+                                                                   "/dbus/source"))));
+
+    const auto *src_first(paths.lookup_source("s1"));
+
+    cppcut_assert_not_null(src_first);
+    cppcut_assert_equal("s1", src_first->id_.c_str());
+    cppcut_assert_equal("Test source", src_first->name_.c_str());
+    cppcut_assert_equal("dbus.source:/dbus/source",
+                        src_first->get_dbus_proxy().get()->const_string());
+    cppcut_assert_equal("p1", src_first->player_id_.c_str());
+
+    paths.add_source(std::move(
+        AudioPath::Source("s1", "Foo Input", "funky",
+                          DBus::mk_proxy<AudioPath::Source::PType>("dbus.foo",
+                                                                   "/dbus/foo"))));
+
+    const auto *src_second(paths.lookup_source("s1"));
+
+    cppcut_assert_not_null(src_second);
+    cppcut_assert_equal("s1", src_second->id_.c_str());
+    cppcut_assert_equal("Test source", src_second->name_.c_str());
+    cppcut_assert_equal("dbus.foo:/dbus/foo",
+                        src_second->get_dbus_proxy().get()->const_string());
+    cppcut_assert_equal("p1", src_second->player_id_.c_str());
 }
 
 }
