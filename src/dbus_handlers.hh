@@ -25,20 +25,24 @@
  */
 /*!@{*/
 
+#include "audiopath.hh"
+
 namespace DBus
 {
 
 /*!
- * Data used in several D-Bus signal handlers.
+ * Data used in several D-Bus handlers.
  */
-class SignalData
+class HandlerData
 {
   public:
-    SignalData(const SignalData &) = delete;
-    SignalData &operator=(const SignalData &) = delete;
-    SignalData(SignalData &&) = default;
+    AudioPath::Paths audio_paths_;
 
-    explicit SignalData() {}
+    HandlerData(const HandlerData &) = delete;
+    HandlerData &operator=(const HandlerData &) = delete;
+    HandlerData(HandlerData &&) = default;
+
+    explicit HandlerData() {}
 };
 
 }

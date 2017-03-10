@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "dbus_iface.h"
+#include "dbus_iface_deep.h"
 #include "dbus_handlers.h"
 #include "audiopath_dbus.h"
 #include "messages.h"
@@ -41,18 +42,25 @@ struct dbus_data
     tdbusdebugLoggingConfig *debug_logging_config_proxy;
 };
 
-static void handle_dbus_error(GError **error)
+bool dbus_handle_error(GError **error, const char *what)
 {
     if(*error == NULL)
-        return;
+        return true;
+
+    if(what == NULL)
+        what = "<UNKNOWN>";
 
     if((*error)->message != NULL)
-        msg_error(0, LOG_EMERG, "Got D-Bus error: %s", (*error)->message);
+        msg_error(0, LOG_EMERG,
+                  "%s: Got D-Bus error: %s", what, (*error)->message);
     else
-        msg_error(0, LOG_EMERG, "Got D-Bus error without any message");
+        msg_error(0, LOG_EMERG,
+                  "%s: Got D-Bus error without any message", what);
 
     g_error_free(*error);
     *error = NULL;
+
+    return false;
 }
 
 static void try_export_iface(GDBusConnection *connection,
@@ -62,7 +70,7 @@ static void try_export_iface(GDBusConnection *connection,
 
     g_dbus_interface_skeleton_export(iface, connection, "/de/tahifi/TAPSwitch", &error);
 
-    handle_dbus_error(&error);
+    dbus_handle_error(&error, "Export interface");
 }
 
 static void bus_acquired(GDBusConnection *connection,
@@ -109,7 +117,7 @@ static void connect_signals_debug(GDBusConnection *connection,
         tdbus_debug_logging_config_proxy_new_sync(connection, flags,
                                                   bus_name, object_path,
                                                   NULL, &error);
-    handle_dbus_error(&error);
+    dbus_handle_error(&error, "Create Debug proxy");
 }
 
 static void name_acquired(GDBusConnection *connection,
@@ -141,7 +149,7 @@ static void destroy_notification(gpointer data)
 static struct dbus_data dbus_data;
 
 int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
-               void *dbus_signal_data_for_dbus_handlers)
+               void *dbus_data_for_dbus_handlers)
 {
 #if !GLIB_CHECK_VERSION(2, 36, 0)
     g_type_init();
@@ -154,7 +162,7 @@ int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
 
     static const char bus_name[] = "de.tahifi.TAPSwitch";
 
-    dbus_data.handler_data = dbus_signal_data_for_dbus_handlers;
+    dbus_data.handler_data = dbus_data_for_dbus_handlers;
     dbus_data.owner_id =
         g_bus_own_name(bus_type, bus_name, G_BUS_NAME_OWNER_FLAGS_NONE,
                        bus_acquired, name_acquired, name_lost, &dbus_data,
@@ -198,4 +206,9 @@ void dbus_shutdown(GMainLoop *loop)
     g_object_unref(dbus_data.debug_logging_config_proxy);
 
     g_main_loop_unref(loop);
+}
+
+tdbusaupathManager *dbus_get_audiopath_manager_iface(void)
+{
+    return dbus_data.audiopath_manager_iface;
 }

@@ -209,9 +209,9 @@ int main(int argc, char *argv[])
     if(setup(&parameters, &loop) < 0)
         return EXIT_FAILURE;
 
-    static DBus::SignalData dbus_signal_data;
+    static DBus::HandlerData dbus_handler_data;
 
-    if(dbus_setup(loop, parameters.connect_to_session_dbus, &dbus_signal_data) < 0)
+    if(dbus_setup(loop, parameters.connect_to_session_dbus, &dbus_handler_data) < 0)
         return EXIT_FAILURE;
 
     connect_unix_signals(loop);

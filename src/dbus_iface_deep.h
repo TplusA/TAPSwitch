@@ -16,11 +16,10 @@
  * along with TAPSwitch.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DBUS_IFACE_H
-#define DBUS_IFACE_H
+#ifndef DBUS_IFACE_DEEP_H
+#define DBUS_IFACE_DEEP_H
 
-#include <stdbool.h>
-#include <glib.h>
+#include "audiopath_dbus.h"
 
 /*!
  * \addtogroup dbus DBus handling
@@ -31,9 +30,9 @@
 extern "C" {
 #endif
 
-int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
-               void *dbus_data_for_dbus_handlers);
-void dbus_shutdown(GMainLoop *loop);
+bool dbus_handle_error(GError **error, const char *what);
+
+tdbusaupathManager *dbus_get_audiopath_manager_iface(void);
 
 #ifdef __cplusplus
 }
@@ -41,4 +40,4 @@ void dbus_shutdown(GMainLoop *loop);
 
 /*!@}*/
 
-#endif /* !DBUS_IFACE_H */
+#endif /* !DBUS_IFACE_DEEP_H */

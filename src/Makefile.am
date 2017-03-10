@@ -24,7 +24,8 @@ tapswitch_SOURCES = \
     tapswitch.cc audiopath.hh dbus_proxy_wrapper.hh \
     messages.h messages.c messages_glib.h messages_glib.c \
     messages_dbus.c messages_dbus.h \
-    dbus_iface.c dbus_iface.h dbus_handlers.h dbus_handlers.hh \
+    dbus_iface.c dbus_iface.h dbus_iface_deep.h \
+    dbus_handlers.h dbus_handlers.hh \
     os.c os.h
 
 DBUS_IFACES = $(top_srcdir)/dbus_interfaces
@@ -38,9 +39,9 @@ AM_CFLAGS = $(CWARNINGS)
 AM_CXXFLAGS = $(CXXWARNINGS)
 
 noinst_LTLIBRARIES = \
-    libaudiopath.la \
     libdbus_handlers.la \
     libaudiopath_dbus.la \
+    libaudiopath.la \
     libdebug_dbus.la
 
 tapswitch_LDADD = $(noinst_LTLIBRARIES) $(TAPSWITCH_DEPENDENCIES_LIBS)
