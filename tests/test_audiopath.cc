@@ -25,8 +25,8 @@
 #include "audiopath.hh"
 
 /*!
- * \addtogroup dbus_handlers_tests Unit tests
- * \ingroup dbus_handlers
+ * \addtogroup audiopath_tests Unit tests
+ * \ingroup audiopath
  *
  * DBus handlers unit tests.
  */
@@ -104,15 +104,21 @@ Proxy<_tdbusaupathSource>::~Proxy()
 
 }
 
-namespace dbus_handlers_tests
+namespace audiopath_tests
 {
 
+/*!\test
+ * Look up audio source right after initialization.
+ */
 void test_lookup_source_in_empty_paths_returns_null()
 {
     AudioPath::Paths paths;
     cppcut_assert_null(paths.lookup_source("src"));
 }
 
+/*!\test
+ * Look up audio source while only a single player has registered.
+ */
 void test_lookup_nonexistent_source_in_paths_with_player_of_same_name_returns_null()
 {
     AudioPath::Paths paths;
@@ -124,6 +130,9 @@ void test_lookup_nonexistent_source_in_paths_with_player_of_same_name_returns_nu
     cppcut_assert_null(paths.lookup_source("foo"));
 }
 
+/*!\test
+ * Look up audio path right after initialization.
+ */
 void test_lookup_path_in_empty_paths_returns_null()
 {
     AudioPath::Paths paths;
@@ -134,6 +143,13 @@ void test_lookup_path_in_empty_paths_returns_null()
     cppcut_assert_null(ap.second);
 }
 
+/*!\test
+ * Look up audio path for nonexistent source while another audio path is
+ * availiable.
+ *
+ * This test is supposed to show that there is no fallback mechanism or
+ * hardcoded lookup.
+ */
 void test_lookup_path_for_nonexistent_source_returns_null()
 {
     AudioPath::Paths paths;
@@ -156,6 +172,9 @@ void test_lookup_path_for_nonexistent_source_returns_null()
     cppcut_assert_null(paths.lookup_source("src"));
 }
 
+/*!\test
+ * Look up partial audio path where a required has not registered yet.
+ */
 void test_lookup_source_without_player_returns_only_source()
 {
     AudioPath::Paths paths;
@@ -172,6 +191,10 @@ void test_lookup_source_without_player_returns_only_source()
     cppcut_assert_null(ap.second);
 }
 
+/*!\test
+ * Looking up audio path works if a source registers after its required player
+ * has registered.
+ */
 void test_add_player_then_source()
 {
     AudioPath::Paths paths;
@@ -201,6 +224,10 @@ void test_add_player_then_source()
                         ap.second->get_dbus_proxy().get()->const_string());
 }
 
+/*!\test
+ * Looking up audio path works if a player registers after the source has
+ * registered which requires the player.
+ */
 void test_add_source_then_player()
 {
     AudioPath::Paths paths;
@@ -230,6 +257,10 @@ void test_add_source_then_player()
                         ap.second->get_dbus_proxy().get()->const_string());
 }
 
+/*!\test
+ * In case a player restarts and registers (again, from our point of view),
+ * then only the D-Bus proxy gets updated.
+ */
 void test_add_player_twice_updates_dbus_proxy_only()
 {
     AudioPath::Paths paths;
@@ -268,6 +299,10 @@ void test_add_player_twice_updates_dbus_proxy_only()
                         ap_second.second->get_dbus_proxy().get()->const_string());
 }
 
+/*!\test
+ * In case a source restarts and registers (again, from our point of view),
+ * then only the D-Bus proxy gets updated.
+ */
 void test_add_source_twice_updates_dbus_proxy_only()
 {
     AudioPath::Paths paths;

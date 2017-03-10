@@ -28,6 +28,11 @@
 struct _tdbusaupathPlayer;
 struct _tdbusaupathSource;
 
+/*!
+ * \addtogroup audiopath Audio path management
+ */
+/*!@{*/
+
 namespace AudioPath
 {
 
@@ -127,5 +132,7 @@ class Paths
 };
 
 };
+
+/*!@}*/
 
 #endif /* !AUDIOPATH_HH */
