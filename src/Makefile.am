@@ -24,7 +24,7 @@ tapswitch_SOURCES = \
     tapswitch.cc audiopath.hh dbus_proxy_wrapper.hh \
     messages.h messages.c messages_glib.h messages_glib.c \
     messages_dbus.c messages_dbus.h \
-    dbus_iface.c dbus_iface.h dbus_iface_deep.h \
+    dbus_iface.c dbus_iface.h dbus_iface_deep.h dbus_common.h \
     dbus_handlers.h dbus_handlers.hh \
     os.c os.h
 
@@ -40,6 +40,7 @@ AM_CXXFLAGS = $(CXXWARNINGS)
 
 noinst_LTLIBRARIES = \
     libdbus_handlers.la \
+    libdbus_common.la \
     libaudiopath_dbus.la \
     libaudiopath.la \
     libdebug_dbus.la
@@ -47,7 +48,9 @@ noinst_LTLIBRARIES = \
 tapswitch_LDADD = $(noinst_LTLIBRARIES) $(TAPSWITCH_DEPENDENCIES_LIBS)
 
 libaudiopath_la_SOURCES = \
-    audiopath.cc audiopath.hh dbus_proxy_wrapper.hh
+    audiopath.cc audiopath.hh \
+    audiopathswitch.cc audiopathswitch.hh \
+    dbus_proxy_wrapper.hh
 libaudiopath_la_CFLAGS = $(AM_CFLAGS)
 libaudiopath_la_CXXFLAGS = $(AM_CXXFLAGS)
 
@@ -56,6 +59,10 @@ libdbus_handlers_la_SOURCES = \
     messages_dbus.h messages_dbus.c
 libdbus_handlers_la_CFLAGS = $(AM_CFLAGS)
 libdbus_handlers_la_CXXFLAGS = $(AM_CXXFLAGS)
+
+libdbus_common_la_SOURCES = dbus_common.c dbus_common.h
+libdbus_common_la_CFLAGS = $(AM_CFLAGS)
+libdbus_common_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 nodist_libdebug_dbus_la_SOURCES = debug_dbus.c debug_dbus.h
 libdebug_dbus_la_CFLAGS = $(CRELAXEDWARNINGS)

@@ -72,6 +72,13 @@ void AudioPath::Paths::add_source(AudioPath::Source &&source)
     add_item(std::move(source));
 }
 
+const AudioPath::Player *
+AudioPath::Paths::lookup_player(const std::string &player_id) const
+{
+    auto player(players_.find(player_id));
+    return (player != players_.end()) ? &player->second : nullptr;
+}
+
 const AudioPath::Source *
 AudioPath::Paths::lookup_source(const std::string &source_id) const
 {

@@ -21,6 +21,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <cppcutter.h>
+#include <string>
 
 #include "audiopath.hh"
 

@@ -44,6 +44,9 @@ class Proxy
     ~Proxy();
 
     const T *get() const { return proxy_; }
+    T *get() { return proxy_; }
+
+    T *get_as_nonconst() const { return proxy_; }
 };
 
 template <typename T>

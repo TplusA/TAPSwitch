@@ -24,6 +24,7 @@
 
 #include "dbus_iface.h"
 #include "dbus_iface_deep.h"
+#include "dbus_common.h"
 #include "dbus_handlers.h"
 #include "audiopath_dbus.h"
 #include "messages.h"
@@ -41,27 +42,6 @@ struct dbus_data
     tdbusdebugLogging *debug_logging_iface;
     tdbusdebugLoggingConfig *debug_logging_config_proxy;
 };
-
-bool dbus_handle_error(GError **error, const char *what)
-{
-    if(*error == NULL)
-        return true;
-
-    if(what == NULL)
-        what = "<UNKNOWN>";
-
-    if((*error)->message != NULL)
-        msg_error(0, LOG_EMERG,
-                  "%s: Got D-Bus error: %s", what, (*error)->message);
-    else
-        msg_error(0, LOG_EMERG,
-                  "%s: Got D-Bus error without any message", what);
-
-    g_error_free(*error);
-    *error = NULL;
-
-    return false;
-}
 
 static void try_export_iface(GDBusConnection *connection,
                              GDBusInterfaceSkeleton *iface)

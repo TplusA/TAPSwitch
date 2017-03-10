@@ -16,39 +16,32 @@
  * along with TAPSwitch.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DBUS_HANDLERS_HH
-#define DBUS_HANDLERS_HH
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
-/*!
- * \addtogroup dbus_handlers DBus handlers for signals
- * \ingroup dbus
- */
-/*!@{*/
+#include <gio/gio.h>
 
-#include "audiopath.hh"
-#include "audiopathswitch.hh"
+#include "dbus_common.h"
+#include "messages.h"
 
-namespace DBus
+bool dbus_handle_error(GError **error, const char *what)
 {
+    if(*error == NULL)
+        return true;
 
-/*!
- * Data used in several D-Bus handlers.
- */
-class HandlerData
-{
-  public:
-    AudioPath::Paths audio_paths_;
-    AudioPath::Switch audio_path_switch_;
+    if(what == NULL)
+        what = "<UNKNOWN>";
 
-    HandlerData(const HandlerData &) = delete;
-    HandlerData &operator=(const HandlerData &) = delete;
-    HandlerData(HandlerData &&) = default;
+    if((*error)->message != NULL)
+        msg_error(0, LOG_EMERG,
+                  "%s: Got D-Bus error: %s", what, (*error)->message);
+    else
+        msg_error(0, LOG_EMERG,
+                  "%s: Got D-Bus error without any message", what);
 
-    explicit HandlerData() {}
-};
+    g_error_free(*error);
+    *error = NULL;
 
+    return false;
 }
-
-/*!@}*/
-
-#endif /* !DBUS_HANDLERS_HH */
