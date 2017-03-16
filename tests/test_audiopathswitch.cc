@@ -142,6 +142,8 @@ void cut_setup()
     paths->add_player(std::move(
         AudioPath::Player("pl-", "Unused player",
                           DBus::mk_proxy<AudioPath::Player::PType>("-", "/dbus/player-"))));
+
+    mock_messages->ignore_messages_above(MESSAGE_LEVEL_DIAG);
 }
 
 void cut_teardown()
@@ -296,6 +298,8 @@ void test_switching_to_nonexistent_source_keeps_current_source()
     cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
 
     /* failed activation */
+    mock_messages->expect_msg_error_formatted(0, LOG_NOTICE,
+            "AUDIO SOURCE SWITCH: Unknown audio source srcD2");
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN),
                         static_cast<int>(pswitch->activate_source(*paths, "srcD2", player_id)));
 
@@ -380,6 +384,8 @@ void test_switch_to_failing_source_for_same_player_kills_audio_path_and_keeps_pl
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(false, aupath_source_proxy('A'), "srcA1");
     mock_messages->expect_msg_error_formatted(0, LOG_EMERG,
             "Select source: Got D-Bus error: Mock source A selection failure");
+    mock_messages->expect_msg_error_formatted(0, LOG_ERR,
+            "AUDIO SOURCE SWITCH: Selecting audio source srcA1 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
@@ -428,6 +434,8 @@ void test_switch_to_failing_source_for_other_player_kills_audio_path_and_keeps_n
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(false, aupath_source_proxy('C'), "srcC2");
     mock_messages->expect_msg_error_formatted(0, LOG_EMERG,
             "Select source: Got D-Bus error: Mock source C selection failure");
+    mock_messages->expect_msg_error_formatted(0, LOG_ERR,
+            "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
@@ -475,6 +483,8 @@ void test_switch_to_failing_player_kills_audio_path_completely()
     mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(false, aupath_player_proxy('2'));
     mock_messages->expect_msg_error_formatted(0, LOG_EMERG,
             "Activate player: Got D-Bus error: Mock player 2 activation failure");
+    mock_messages->expect_msg_error_formatted(0, LOG_ERR,
+            "AUDIO SOURCE SWITCH: Activating player pl2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_PLAYER_FAILED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
@@ -503,6 +513,9 @@ void test_switch_to_failing_player_kills_audio_path_completely()
 void test_switch_to_nameless_source_is_rejected()
 {
     const std::string *player_id;
+
+    mock_messages->expect_msg_error_formatted(EINVAL, LOG_ERR,
+            "AUDIO SOURCE SWITCH: Empty audio source ID (Invalid argument)");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN),
                         static_cast<int>(pswitch->activate_source(*paths, "", player_id)));
@@ -607,6 +620,8 @@ void test_releasing_nonactive_path_with_active_player_can_deactivate_player()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(false, aupath_source_proxy('C'), "srcC2");
     mock_messages->expect_msg_error_formatted(0, LOG_EMERG,
             "Select source: Got D-Bus error: Mock source C selection failure");
+    mock_messages->expect_msg_error_formatted(0, LOG_ERR,
+            "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
@@ -638,6 +653,8 @@ void test_releasing_nonactive_path_with_active_player_can_keep_player_active()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(false, aupath_source_proxy('C'), "srcC2");
     mock_messages->expect_msg_error_formatted(0, LOG_EMERG,
             "Select source: Got D-Bus error: Mock source C selection failure");
+    mock_messages->expect_msg_error_formatted(0, LOG_ERR,
+            "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));

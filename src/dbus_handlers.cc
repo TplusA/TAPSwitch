@@ -84,6 +84,15 @@ Proxy<tdbusaupathSource>::~Proxy()
 
 }
 
+static void enter_audiopath_manager_handler(GDBusMethodInvocation *invocation)
+{
+    static const char iface_name[] = "de.tahifi.AudioPath.Manager";
+
+    msg_vinfo(MESSAGE_LEVEL_TRACE, "%s method invocation from '%s': %s",
+              iface_name, g_dbus_method_invocation_get_sender(invocation),
+              g_dbus_method_invocation_get_method_name(invocation));
+}
+
 gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
                                            GDBusMethodInvocation *invocation,
                                            const gchar *player_id,
@@ -91,6 +100,8 @@ gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
                                            const gchar *path,
                                            gpointer user_data)
 {
+    enter_audiopath_manager_handler(invocation);
+
     if(player_id[0] == '\0' || player_name[0] == '\0' || path[0] == '\0')
     {
         g_dbus_method_invocation_return_error_literal(invocation,
@@ -127,6 +138,8 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
                                            const gchar *path,
                                            gpointer user_data)
 {
+    enter_audiopath_manager_handler(invocation);
+
     if(source_id[0] == '\0' || source_name[0] == '\0' || player_id[0] == '\0' ||
        path[0] == '\0')
     {
@@ -159,10 +172,14 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
                                           const gchar *source_id,
                                           gpointer user_data)
 {
+    enter_audiopath_manager_handler(invocation);
+
     auto *data = static_cast<DBus::HandlerData *>(user_data);
     const std::string *player_id;
     bool success = false;
     bool suppress_signal = false;
+
+    msg_vinfo(MESSAGE_LEVEL_DIAG, "Requested audio source \"%s\"", source_id);
 
     switch(data->audio_path_switch_.activate_source(data->audio_paths_,
                                                     source_id, player_id))
@@ -211,6 +228,15 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         break;
     }
 
+    if(success)
+        msg_vinfo(MESSAGE_LEVEL_DIAG,
+                  "Activated audio source %s, %semitting signal",
+                  source_id, suppress_signal ? "not " : "");
+    else
+        msg_error(0, LOG_ERR,
+                  "Failed activating audio source %s, %semitting signal",
+                  source_id, suppress_signal ? "not " : "");
+
     if(suppress_signal)
         return TRUE;
 
@@ -231,6 +257,8 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
                                         gboolean deactivate_player,
                                         gpointer user_data)
 {
+    enter_audiopath_manager_handler(invocation);
+
     auto *data = static_cast<DBus::HandlerData *>(user_data);
     const std::string *player_id;
     bool suppress_signal = false;
@@ -264,6 +292,8 @@ gboolean dbusmethod_aupath_get_active_player(tdbusaupathManager *object,
                                              const gchar *source_id,
                                              gpointer user_data)
 {
+    enter_audiopath_manager_handler(invocation);
+
     auto *data = static_cast<DBus::HandlerData *>(user_data);
 
     tdbus_aupath_manager_complete_get_active_player(object, invocation,

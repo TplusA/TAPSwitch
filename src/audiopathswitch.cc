@@ -25,6 +25,8 @@
 #include "dbus_iface_deep.h"
 #include "messages.h"
 
+static const char debug_prefix[] = "AUDIO SOURCE SWITCH: ";
+
 static void deactivate_player(const AudioPath::Paths &paths,
                               std::string &player_id)
 {
@@ -33,20 +35,37 @@ static void deactivate_player(const AudioPath::Paths &paths,
 
     const AudioPath::Player *old_player = paths.lookup_player(player_id);
 
+    msg_vinfo(MESSAGE_LEVEL_DEBUG,
+              "%sDeactivate player %s (%s)", debug_prefix,
+              old_player->id_.c_str(), old_player->name_.c_str());
+
     GError *error = nullptr;
     tdbus_aupath_player_call_deactivate_sync(old_player->get_dbus_proxy().get_as_nonconst(),
                                              nullptr, &error);
-    dbus_handle_error(&error, "Deactivate player");
+
+    if(!dbus_handle_error(&error, "Deactivate player"))
+        msg_error(0, LOG_ERR, "%sDeactivating player %s failed",
+                  debug_prefix,  old_player->id_.c_str());
 
     player_id.clear();
 }
 
 static bool activate_player(const AudioPath::Player &player)
 {
+    msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sActivate player %s (%s)",
+              debug_prefix, player.id_.c_str(), player.name_.c_str());
+
     GError *error = nullptr;
     tdbus_aupath_player_call_activate_sync(player.get_dbus_proxy().get_as_nonconst(),
                                            nullptr, &error);
-    return dbus_handle_error(&error, "Activate player");
+    if(!dbus_handle_error(&error, "Activate player"))
+    {
+        msg_error(0, LOG_ERR, "%sActivating player %s failed",
+                  debug_prefix, player.id_.c_str());
+        return false;
+    }
+
+    return true;
 }
 
 static void deselect_source(const AudioPath::Paths &paths,
@@ -57,22 +76,40 @@ static void deselect_source(const AudioPath::Paths &paths,
 
     const AudioPath::Source *old_source = paths.lookup_source(source_id);
 
+    msg_vinfo(MESSAGE_LEVEL_DEBUG,
+              "%sDeselect audio source %s (%s)", debug_prefix,
+              old_source->id_.c_str(), old_source->name_.c_str());
+
     GError *error = nullptr;
     tdbus_aupath_source_call_deselected_sync(old_source->get_dbus_proxy().get_as_nonconst(),
                                              source_id.c_str(),
                                              nullptr, &error);
-    dbus_handle_error(&error, "Deselect source");
+
+    if(!dbus_handle_error(&error, "Deselect source"))
+        msg_error(0, LOG_ERR, "%sDeselecting audio source %s failed",
+                  debug_prefix, old_source->id_.c_str());
 
     source_id.clear();
 }
 
 static bool select_source(const AudioPath::Source &source)
 {
+    msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sSelect audio source %s (%s)",
+              debug_prefix, source.id_.c_str(), source.name_.c_str());
+
     GError *error = nullptr;
     tdbus_aupath_source_call_selected_sync(source.get_dbus_proxy().get_as_nonconst(),
                                            source.id_.c_str(),
                                            nullptr, &error);
-    return dbus_handle_error(&error, "Select source");
+
+    if(!dbus_handle_error(&error, "Select source"))
+    {
+        msg_error(0, LOG_ERR, "%sSelecting audio source %s failed",
+                  debug_prefix, source.id_.c_str());
+        return false;
+    }
+
+    return true;
 }
 
 AudioPath::Switch::ActivateResult
@@ -83,10 +120,15 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
     player_id = nullptr;
 
     if(source_id[0] == '\0')
+    {
+        msg_error(EINVAL, LOG_ERR, "%sEmpty audio source ID", debug_prefix);
         return ActivateResult::ERROR_SOURCE_UNKNOWN;
+    }
 
     if(source_id == current_source_id_)
     {
+        msg_vinfo(MESSAGE_LEVEL_DEBUG,
+                  "%sAudio source not changed", debug_prefix);
         player_id = &current_player_id_;
         return ActivateResult::OK_UNCHANGED;
     }
@@ -95,9 +137,21 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
 
     if(path.second == nullptr)
     {
-        return path.first == nullptr
-            ? ActivateResult::ERROR_SOURCE_UNKNOWN
-            : ActivateResult::ERROR_PLAYER_UNKNOWN;
+        if(path.first == nullptr)
+        {
+            msg_error(0, LOG_NOTICE,
+                      "%sUnknown audio source %s", debug_prefix, source_id);
+            return ActivateResult::ERROR_SOURCE_UNKNOWN;
+        }
+        else
+        {
+            msg_vinfo(MESSAGE_LEVEL_DEBUG,
+                      "%sUnknown player %s for audio source %s (%s)",
+                      debug_prefix,
+                      path.first->player_id_.c_str(),
+                      path.first->id_.c_str(), path.first->name_.c_str());
+            return ActivateResult::ERROR_PLAYER_UNKNOWN;
+        }
     }
     else
         log_assert(path.first != nullptr);
@@ -136,6 +190,12 @@ AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
 {
     const bool have_deselected_source = !current_source_id_.empty();
     const bool have_deactivated_player = kill_player && !current_player_id_.empty();
+
+    msg_vinfo(MESSAGE_LEVEL_DEBUG,
+              "%sRelease current audio path (%s), %s player",
+              debug_prefix,
+              have_deselected_source ? "<NONE>" : current_source_id_.c_str(),
+              kill_player ? "deactivate" : "keep");
 
     if(have_deselected_source)
         deselect_source(paths, current_source_id_);
