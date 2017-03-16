@@ -134,10 +134,10 @@ AudioPath::Switch::ReleaseResult
 AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
                                 const std::string *&player_id)
 {
-    const bool have_delected_source = !current_source_id_.empty();
+    const bool have_deselected_source = !current_source_id_.empty();
     const bool have_deactivated_player = kill_player && !current_player_id_.empty();
 
-    if(have_delected_source)
+    if(have_deselected_source)
         deselect_source(paths, current_source_id_);
 
     if(have_deactivated_player)
@@ -145,7 +145,7 @@ AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
 
     player_id = current_player_id_.empty() ? nullptr : &current_player_id_;
 
-    return (have_delected_source
+    return (have_deselected_source
             ? (have_deactivated_player
                ? AudioPath::Switch::ReleaseResult::COMPLETE_RELEASE
                : AudioPath::Switch::ReleaseResult::SOURCE_DESELECTED)
