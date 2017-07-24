@@ -33,8 +33,8 @@ when it may take the audio device. An audio player is considered _active_ if it
 is allowed to take the audio device, _inactive_ otherwise. If _tapswitch_ tells
 an audio player to deactivate via D-Bus method invocation, then the player
 _must_ release the audio device before the method invocation returns. If
-_tapswitch_ tells an audio player to active, then it is allowed (not required)
-to use the audio device.
+_tapswitch_ tells an audio player to activate, then it is allowed (but not
+required) to use the audio device.
 
 A D-Bus signal is emitted after a player has registered.
 
@@ -46,8 +46,9 @@ the player for a given source, and _tapswitch_ will coordinate players so that
 the correct one gets activated. The registered source is notified with a D-Bus
 method invocation when its player is ready.
 
-Note that an audio source is just a concept used by _tapswitch_ to introduce an
-extra level of indirection. This way, processes that would like to activate
+Note that as far as _tapswitch_ is concerned, an audio source is just a concept
+to introduce an extra level of indirection to the system, decoupling logical
+audio sources from players. This way, processes that would like to activate
 some source do not need to know which audio player is responsible for the
 source in question. To _tapswitch_, an audio source is simply a string ID with
 no further meaning.
