@@ -97,6 +97,17 @@ struct AddItemTraits;
 
 class Paths
 {
+  public:
+    using Path = std::pair<const Source *, const Player *>;
+
+    enum class AddResult
+    {
+        NEW_COMPONENT,
+        UPDATED_COMPONENT,
+        NEW_PATH,
+        UPDATED_PATH,
+    };
+
   private:
     std::map<const std::string, Player> players_;
     std::map<const std::string, Source> sources_;
@@ -110,8 +121,8 @@ class Paths
 
     explicit Paths() {}
 
-    void add_player(Player &&player);
-    void add_source(Source &&source);
+    AddResult add_player(Player &&player);
+    AddResult add_source(Source &&source);
 
     const Player *lookup_player(const std::string &player_id) const;
     const Source *lookup_source(const std::string &source_id) const;
@@ -127,14 +138,14 @@ class Paths
         return lookup_source(std::string(source_id));
     }
 
-    std::pair<const Source *, const Player *> lookup_path(const char *source_id) const
+    Path lookup_path(const char *source_id) const
     {
         return lookup_path(std::string(source_id));
     }
 
   private:
     template <typename T>
-    void add_item(T &&item);
+    const T &add_item(T &&item, bool &inserted);
 };
 
 };

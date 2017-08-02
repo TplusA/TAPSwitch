@@ -20,6 +20,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <algorithm>
+
 #include "audiopath.hh"
 
 /*
@@ -47,7 +49,7 @@ struct AddItemTraits<Source>
 }
 
 template <typename T>
-void AudioPath::Paths::add_item(T &&item)
+const T &AudioPath::Paths::add_item(T &&item, bool &inserted)
 {
     using Traits = AudioPath::AddItemTraits<T>;
 
@@ -57,19 +59,48 @@ void AudioPath::Paths::add_item(T &&item)
     auto it(map.find(key));
 
     if(it == map.end())
-        map.emplace(std::move(key), std::move(item));
+    {
+        inserted = true;
+        const auto result(map.emplace(std::move(key), std::move(item)));
+        return result.first->second;
+    }
     else
+    {
+        inserted = false;
         it->second.take_proxy_from(item);
+        return it->second;
+    }
 }
 
-void AudioPath::Paths::add_player(AudioPath::Player &&player)
+AudioPath::Paths::AddResult
+AudioPath::Paths::add_player(AudioPath::Player &&player)
 {
-    add_item(std::move(player));
+    bool inserted;
+    const auto &p(add_item(std::move(player), inserted));
+    const bool have_path = std::find_if(sources_.begin(), sources_.end(),
+                                        [&p] (const decltype(Paths::sources_)::value_type &src)
+                                        {
+                                            return src.second.player_id_ == p.id_;
+                                        }) != sources_.end();
+
+
+    if(!inserted)
+        return have_path ? AddResult::UPDATED_PATH : AddResult::UPDATED_COMPONENT;
+    else
+        return have_path ? AddResult::NEW_PATH : AddResult::NEW_COMPONENT;
 }
 
-void AudioPath::Paths::add_source(AudioPath::Source &&source)
+AudioPath::Paths::AddResult
+AudioPath::Paths::add_source(AudioPath::Source &&source)
 {
-    add_item(std::move(source));
+    bool inserted;
+    const auto &s(add_item(std::move(source), inserted));
+    const bool have_path(players_.find(s.player_id_) != players_.end());
+
+    if(!inserted)
+        return have_path ? AddResult::UPDATED_PATH : AddResult::UPDATED_COMPONENT;
+    else
+        return have_path ? AddResult::NEW_PATH : AddResult::NEW_COMPONENT;
 }
 
 const AudioPath::Player *
@@ -86,7 +117,7 @@ AudioPath::Paths::lookup_source(const std::string &source_id) const
     return (source != sources_.end()) ? &source->second : nullptr;
 }
 
-std::pair<const AudioPath::Source *, const AudioPath::Player *>
+AudioPath::Paths::Path
 AudioPath::Paths::lookup_path(const std::string &source_id) const
 {
     const auto *source(lookup_source(source_id));
