@@ -143,6 +143,18 @@ class Paths
         return lookup_path(std::string(source_id));
     }
 
+    enum class ForEach
+    {
+        ANY,
+        COMPLETE_PATHS,
+        INCOMPLETE_PATHS,
+        UNCONNECTED_SOURCES,
+        UNCONNECTED_PLAYERS,
+    };
+
+    void for_each(const std::function<void(const AudioPath::Paths::Path &)> &apply,
+                  ForEach mode = ForEach::COMPLETE_PATHS) const;
+
   private:
     template <typename T>
     const T &add_item(T &&item, bool &inserted);

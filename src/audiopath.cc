@@ -132,3 +132,78 @@ AudioPath::Paths::lookup_path(const std::string &source_id) const
     else
         return std::make_pair(source, &player->second);
 }
+
+void AudioPath::Paths::for_each(const std::function<void(const AudioPath::Paths::Path &)> &apply,
+                                AudioPath::Paths::ForEach mode) const
+{
+    AudioPath::Paths::Path temp;
+
+    if(mode != ForEach::UNCONNECTED_PLAYERS)
+    {
+        for(const auto &s : sources_)
+        {
+            const auto p(players_.find(s.second.player_id_));
+
+            if(p != players_.end())
+            {
+                switch(mode)
+                {
+                  case ForEach::ANY:
+                  case ForEach::COMPLETE_PATHS:
+                    temp.first = &s.second;
+                    temp.second = &p->second;
+                    apply(temp);
+                    break;
+
+                  case ForEach::INCOMPLETE_PATHS:
+                  case ForEach::UNCONNECTED_SOURCES:
+                  case ForEach::UNCONNECTED_PLAYERS:
+                    break;
+                }
+            }
+            else
+            {
+                switch(mode)
+                {
+                  case ForEach::ANY:
+                  case ForEach::INCOMPLETE_PATHS:
+                  case ForEach::UNCONNECTED_SOURCES:
+                    temp.first = &s.second;
+                    temp.second = nullptr;
+                    apply(temp);
+                    break;
+
+                  case ForEach::COMPLETE_PATHS:
+                  case ForEach::UNCONNECTED_PLAYERS:
+                    break;
+                }
+            }
+        }
+    }
+
+    switch(mode)
+    {
+      case ForEach::ANY:
+      case ForEach::INCOMPLETE_PATHS:
+      case ForEach::UNCONNECTED_PLAYERS:
+        for(const auto &p : players_)
+        {
+            if(std::find_if(sources_.begin(), sources_.end(),
+                            [&p] (const decltype(Paths::sources_)::value_type &src)
+                            {
+                                return src.second.player_id_ == p.second.id_;
+                            }) == sources_.end())
+            {
+                temp.first = nullptr;
+                temp.second = &p.second;
+                apply(temp);
+            }
+        }
+
+        break;
+
+      case ForEach::COMPLETE_PATHS:
+      case ForEach::UNCONNECTED_SOURCES:
+        break;
+    }
+}
