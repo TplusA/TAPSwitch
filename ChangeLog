@@ -1,3 +1,12 @@
+2017-08-02  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.1 released.
+
+	* D-Bus: Signal is emitted for each complete, usable audio path.
+
+	* D-Bus: Methods for getting all audio paths, audio source
+	  information, and player information.
+
 2017-03-21  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.0 released.
