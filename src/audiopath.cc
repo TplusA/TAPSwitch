@@ -24,11 +24,6 @@
 
 #include "audiopath.hh"
 
-/*
-template <typename T>
-struct AddItemTraits;
-*/
-
 namespace AudioPath
 {
 
