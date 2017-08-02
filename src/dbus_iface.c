@@ -78,6 +78,15 @@ static void bus_acquired(GDBusConnection *connection,
     g_signal_connect(data->audiopath_manager_iface, "handle-get-active-player",
                      G_CALLBACK(dbusmethod_aupath_get_active_player),
                      data->handler_data);
+    g_signal_connect(data->audiopath_manager_iface, "handle-get-paths",
+                     G_CALLBACK(dbusmethod_aupath_get_paths),
+                     data->handler_data);
+    g_signal_connect(data->audiopath_manager_iface, "handle-get-player-info",
+                     G_CALLBACK(dbusmethod_aupath_get_player_info),
+                     data->handler_data);
+    g_signal_connect(data->audiopath_manager_iface, "handle-get-source-info",
+                     G_CALLBACK(dbusmethod_aupath_get_source_info),
+                     data->handler_data);
 
     g_signal_connect(data->debug_logging_iface,
                      "handle-debug-level",

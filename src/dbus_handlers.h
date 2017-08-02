@@ -58,6 +58,17 @@ gboolean dbusmethod_aupath_get_active_player(tdbusaupathManager *object,
                                              GDBusMethodInvocation *invocation,
                                              const gchar *source_id,
                                              gpointer user_data);
+gboolean dbusmethod_aupath_get_paths(tdbusaupathManager *object,
+                                     GDBusMethodInvocation *invocation,
+                                     gpointer user_data);
+gboolean dbusmethod_aupath_get_player_info(tdbusaupathManager *object,
+                                           GDBusMethodInvocation *invocation,
+                                           const gchar *player_id,
+                                           gpointer user_data);
+gboolean dbusmethod_aupath_get_source_info(tdbusaupathManager *object,
+                                           GDBusMethodInvocation *invocation,
+                                           const gchar *source_id,
+                                           gpointer user_data);
 
 #ifdef __cplusplus
 }

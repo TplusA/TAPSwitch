@@ -119,13 +119,33 @@ gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
               "Register player %s (\"%s\") running on %s, object %s",
               player_id, player_name, dest, path);
 
-    data->audio_paths_.add_player(std::move(
-        AudioPath::Player(player_id, player_name,
-                          DBus::mk_proxy<AudioPath::Player::PType>(dest, path))));
+    const auto add_result(
+        data->audio_paths_.add_player(std::move(
+            AudioPath::Player(player_id, player_name,
+                              DBus::mk_proxy<AudioPath::Player::PType>(dest, path)))));
 
     tdbus_aupath_manager_complete_register_player(object, invocation);
 
     tdbus_aupath_manager_emit_player_registered(object, player_id, player_name);
+
+    switch(add_result)
+    {
+      case AudioPath::Paths::AddResult::NEW_COMPONENT:
+      case AudioPath::Paths::AddResult::UPDATED_COMPONENT:
+        break;
+
+      case AudioPath::Paths::AddResult::NEW_PATH:
+      case AudioPath::Paths::AddResult::UPDATED_PATH:
+        data->audio_paths_.for_each(
+            [object, player_id]
+            (const AudioPath::Paths::Path &p)
+            {
+                if(p.second->id_ == player_id)
+                    tdbus_aupath_manager_emit_path_available(object, p.first->id_.c_str(), player_id);
+            });
+
+        break;
+    }
 
     return TRUE;
 }
@@ -158,11 +178,24 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
               "Register source %s (\"%s\") for player %s running on %s, object %s",
               source_id, source_name, player_id, dest, path);
 
-    data->audio_paths_.add_source(std::move(
-        AudioPath::Source(source_id, source_name, player_id,
-                          DBus::mk_proxy<AudioPath::Source::PType>(dest, path))));
+    const auto add_result(
+        data->audio_paths_.add_source(std::move(
+            AudioPath::Source(source_id, source_name, player_id,
+                              DBus::mk_proxy<AudioPath::Source::PType>(dest, path)))));
 
     tdbus_aupath_manager_complete_register_source(object, invocation);
+
+    switch(add_result)
+    {
+      case AudioPath::Paths::AddResult::NEW_COMPONENT:
+      case AudioPath::Paths::AddResult::UPDATED_COMPONENT:
+        break;
+
+      case AudioPath::Paths::AddResult::NEW_PATH:
+      case AudioPath::Paths::AddResult::UPDATED_PATH:
+        tdbus_aupath_manager_emit_path_available(object, source_id, player_id);
+        break;
+    }
 
     return TRUE;
 }
@@ -298,6 +331,95 @@ gboolean dbusmethod_aupath_get_active_player(tdbusaupathManager *object,
 
     tdbus_aupath_manager_complete_get_active_player(object, invocation,
                                                     data->audio_path_switch_.get_player_id().c_str());
+
+    return TRUE;
+}
+
+gboolean dbusmethod_aupath_get_paths(tdbusaupathManager *object,
+                                     GDBusMethodInvocation *invocation,
+                                     gpointer user_data)
+{
+    enter_audiopath_manager_handler(invocation);
+
+    GVariantBuilder usable;
+    g_variant_builder_init(&usable, G_VARIANT_TYPE("a(ss)"));
+
+    GVariantBuilder incomplete;
+    g_variant_builder_init(&incomplete, G_VARIANT_TYPE("a(ss)"));
+
+    auto *data = static_cast<DBus::HandlerData *>(user_data);
+
+    data->audio_paths_.for_each(
+        [&usable, &incomplete]
+        (const AudioPath::Paths::Path &p)
+        {
+            GVariantBuilder *const vb =
+                (p.first != nullptr && p.second != nullptr) ? &usable : &incomplete;
+
+            g_variant_builder_add(vb, "(ss)",
+                                  p.first != nullptr ? p.first->id_.c_str() : "",
+                                  p.second != nullptr ? p.second->id_.c_str() : "");
+        },
+        AudioPath::Paths::ForEach::ANY);
+
+    tdbus_aupath_manager_complete_get_paths(object, invocation,
+                                            g_variant_builder_end(&usable),
+                                            g_variant_builder_end(&incomplete));
+
+    return TRUE;
+}
+
+gboolean dbusmethod_aupath_get_player_info(tdbusaupathManager *object,
+                                           GDBusMethodInvocation *invocation,
+                                           const gchar *player_id,
+                                           gpointer user_data)
+{
+    enter_audiopath_manager_handler(invocation);
+
+    auto *data = static_cast<DBus::HandlerData *>(user_data);
+    const auto *const p(data->audio_paths_.lookup_player(player_id));
+
+    if(p == nullptr)
+        g_dbus_method_invocation_return_error(invocation, G_DBUS_ERROR,
+                                              G_DBUS_ERROR_FAILED,
+                                              "Audio player \"%s\" no registered",
+                                              player_id);
+    else
+    {
+        auto *proxy = G_DBUS_PROXY(p->get_dbus_proxy().get());
+        tdbus_aupath_manager_complete_get_player_info(object, invocation,
+                                                      p->name_.c_str(),
+                                                      g_dbus_proxy_get_name(proxy),
+                                                      g_dbus_proxy_get_object_path(proxy));
+    }
+
+    return TRUE;
+}
+
+gboolean dbusmethod_aupath_get_source_info(tdbusaupathManager *object,
+                                           GDBusMethodInvocation *invocation,
+                                           const gchar *source_id,
+                                           gpointer user_data)
+{
+    enter_audiopath_manager_handler(invocation);
+
+    auto *data = static_cast<DBus::HandlerData *>(user_data);
+    const auto *const s(data->audio_paths_.lookup_source(source_id));
+
+    if(s == nullptr)
+        g_dbus_method_invocation_return_error(invocation, G_DBUS_ERROR,
+                                              G_DBUS_ERROR_FAILED,
+                                              "Audio source \"%s\" no registered",
+                                              source_id);
+    else
+    {
+        auto *proxy = G_DBUS_PROXY(s->get_dbus_proxy().get());
+        tdbus_aupath_manager_complete_get_source_info(object, invocation,
+                                                      s->name_.c_str(),
+                                                      s->player_id_.c_str(),
+                                                      g_dbus_proxy_get_name(proxy),
+                                                      g_dbus_proxy_get_object_path(proxy));
+    }
 
     return TRUE;
 }
