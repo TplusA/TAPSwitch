@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -22,6 +22,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <functional>
 
 #include "dbus_proxy_wrapper.hh"
 
