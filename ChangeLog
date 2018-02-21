@@ -1,3 +1,11 @@
+2018-03-06  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.2 released.
+
+	* Maintenance: Fix compilation with gcc 7.3.0.
+
+	* Misc: Do not error out if markdown is not installed.
+
 2017-08-02  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.1 released.
@@ -22,4 +30,4 @@
 	  functional
 
 
-Copyright 2017 T+A elektroakustik GmbH & Co. KG
+Copyright 2017, 2018 T+A elektroakustik GmbH & Co. KG
