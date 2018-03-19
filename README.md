@@ -53,3 +53,17 @@ logical audio sources from audio **players**. This way, processes that would
 like to activate some audio source do not need to know which audio player is
 responsible for the audio source in question. To _tapswitch_, an audio source
 is simply a string ID with no further meaning.
+
+## Communication with appliances
+
+Before the Streaming Board can play anything, the appliance the Streaming Board
+is built into may have to set up its audio hardware (waking up from sleep
+state, switching relays, switch on more appliances, warming up components,
+anything like that) before any audible sound can be produced. Therefore, an
+audio player must wait for the appliance to become ready, i.e., its activation
+must be synchronized to any delays introduced by the appliance.
+
+To achieve this, _tapswitch_ can be informed about the state of the audio
+hardware via D-Bus commands. As long as the hardware is not ready, it will
+defer the activation of any audio player. Likely, the hardware state methods
+will be called by _dcpd_.
