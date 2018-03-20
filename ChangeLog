@@ -1,3 +1,17 @@
+2018-04-17  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.3 released.
+
+	* Audio path synchronization: The appliance's audio system state can
+	  be set via D-Bus now. Audio source switching only completes if the
+	  appliance is known (or assumed) to be able to output sound. If not,
+	  then completion of audio path activation is deferred until it is.
+
+	  This feature enables proper synchronization of the Streaming Board
+	  with the audio hardware inside (or around) the appliance.
+
+	* Misc: Support concurrent requests of same audio source.
+
 2018-03-06  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.2 released.
