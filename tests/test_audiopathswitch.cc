@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -25,6 +25,7 @@
 
 #include "audiopath.hh"
 #include "audiopathswitch.hh"
+#include "appliance.hh"
 
 #include "mock_messages.hh"
 #include "mock_audiopath_dbus.hh"
@@ -177,7 +178,7 @@ void test_switch_complete_path()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -190,7 +191,7 @@ void test_switch_complete_path()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('C'), "srcC2");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -203,7 +204,7 @@ void test_switch_complete_path()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -222,7 +223,7 @@ void test_sources_for_same_player()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -233,7 +234,7 @@ void test_sources_for_same_player()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SAME),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -244,7 +245,7 @@ void test_sources_for_same_player()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SAME),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -263,7 +264,7 @@ void test_switching_to_same_source_is_nop()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -272,7 +273,7 @@ void test_switching_to_same_source_is_nop()
 
     /* second activation */
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_UNCHANGED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -291,7 +292,7 @@ void test_switching_to_nonexistent_source_keeps_current_source()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('C'), "srcC2");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -301,7 +302,7 @@ void test_switching_to_nonexistent_source_keeps_current_source()
     mock_messages->expect_msg_error_formatted(0, LOG_NOTICE,
             "AUDIO SOURCE SWITCH: Unknown audio source srcD2");
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcD2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcD2", player_id, true)));
 
     cppcut_assert_null(player_id);
     cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
@@ -314,7 +315,7 @@ void test_switching_to_nonexistent_source_keeps_current_source()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -333,7 +334,7 @@ void test_switching_to_existent_source_without_player_keeps_current_source()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('C'), "srcC2");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -341,7 +342,7 @@ void test_switching_to_existent_source_without_player_keeps_current_source()
 
     /* failed activation */
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_PLAYER_UNKNOWN),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcD-", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcD-", player_id, true)));
 
     cppcut_assert_null(player_id);
     cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
@@ -354,7 +355,7 @@ void test_switching_to_existent_source_without_player_keeps_current_source()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -373,7 +374,7 @@ void test_switch_to_failing_source_for_same_player_kills_audio_path_and_keeps_pl
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -388,7 +389,7 @@ void test_switch_to_failing_source_for_same_player_kills_audio_path_and_keeps_pl
             "AUDIO SOURCE SWITCH: Selecting audio source srcA1 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -402,7 +403,7 @@ void test_switch_to_failing_source_for_same_player_kills_audio_path_and_keeps_pl
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('E'), "srcE3");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl3", player_id->c_str());
@@ -421,7 +422,7 @@ void test_switch_to_failing_source_for_other_player_kills_audio_path_and_keeps_n
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -438,7 +439,7 @@ void test_switch_to_failing_source_for_other_player_kills_audio_path_and_keeps_n
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -452,7 +453,7 @@ void test_switch_to_failing_source_for_other_player_kills_audio_path_and_keeps_n
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('E'), "srcE3");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl3", player_id->c_str());
@@ -471,7 +472,7 @@ void test_switch_to_failing_player_kills_audio_path_completely()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -487,7 +488,7 @@ void test_switch_to_failing_player_kills_audio_path_completely()
             "AUDIO SOURCE SWITCH: Activating player pl2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_PLAYER_FAILED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -500,7 +501,7 @@ void test_switch_to_failing_player_kills_audio_path_completely()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('E'), "srcE3");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl3", player_id->c_str());
@@ -518,7 +519,7 @@ void test_switch_to_nameless_source_is_rejected()
             "AUDIO SOURCE SWITCH: Empty audio source ID (Invalid argument)");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN),
-                        static_cast<int>(pswitch->activate_source(*paths, "", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "", player_id, true)));
 
     cppcut_assert_null(player_id);
     cut_assert_true(pswitch->get_player_id().empty());
@@ -535,7 +536,7 @@ void test_releasing_path_deselects_source_and_can_deactivate_player()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -563,7 +564,7 @@ void test_releasing_path_deselects_source_and_can_keep_player_active()
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -624,7 +625,7 @@ void test_releasing_nonactive_path_with_active_player_can_deactivate_player()
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -657,7 +658,7 @@ void test_releasing_nonactive_path_with_active_player_can_keep_player_active()
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed");
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED),
-                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id)));
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
@@ -671,6 +672,91 @@ void test_releasing_nonactive_path_with_active_player_can_keep_player_active()
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl2", player_id->c_str());
     cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
+}
+
+/*!\test
+ * Audio source activation is deferred until appliance tells us it is ready.
+ */
+void test_switch_path_while_appliance_is_not_ready()
+{
+    AudioPath::Appliance appliance;
+    cut_assert_true(appliance.set_audio_path_blocked());
+
+    const std::string *player_id;
+
+    /* try to activate */
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+                                                appliance.is_audio_path_ready() == true)));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    mock_audiopath_dbus->check();
+    mock_messages->check();
+
+    /* appliance was blocked, now assume it has told us it is ready */
+    cut_assert_true(appliance.set_audio_path_ready());
+
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
+    std::string source_id;
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    cppcut_assert_equal("srcB1", source_id.c_str());
+}
+
+/*!\test
+ * New audio source activation while another activation is pending works by
+ * replacing the pending activation by a new pending activation.
+ *
+ * When the appliance is ready, the new pending activation is executed.
+ */
+void test_switch_path_twice_while_appliance_is_not_ready()
+{
+    AudioPath::Appliance appliance;
+    cut_assert_true(appliance.set_audio_path_blocked());
+
+    const std::string *player_id;
+
+    /* try to activate the first time */
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+                                                appliance.is_audio_path_ready() == true)));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    mock_audiopath_dbus->check();
+    mock_messages->check();
+
+    /* try to activate the second time */
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_deactivate_sync(true, aupath_player_proxy('1'));
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('2'));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id,
+                                                appliance.is_audio_path_ready() == true)));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl2", player_id->c_str());
+    cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
+    mock_audiopath_dbus->check();
+    mock_messages->check();
+
+    /* appliance was blocked, now assume it has told us it is ready */
+    cut_assert_true(appliance.set_audio_path_ready());
+
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('C'), "srcC2");
+    std::string source_id;
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
+    cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
+    cppcut_assert_equal("srcC2", source_id.c_str());
 }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -53,9 +53,52 @@ class Switch
         UNCHANGED,
     };
 
+    struct PendingActivation
+    {
+      private:
+        std::string source_id_;
+        ActivateResult phase_one_result_;
+
+      public:
+        PendingActivation(const PendingActivation &) = delete;
+        PendingActivation &operator=(const PendingActivation &) = delete;
+
+        explicit PendingActivation():
+            phase_one_result_(ActivateResult::ERROR_SOURCE_UNKNOWN)
+        {}
+
+        void set(const std::string &source_id, ActivateResult result)
+        {
+            source_id_ = source_id;
+            phase_one_result_ = result;
+        }
+
+        void clear()
+        {
+            source_id_.clear();
+            phase_one_result_ = ActivateResult::ERROR_SOURCE_UNKNOWN;
+        }
+
+        bool have_pending_activation() const { return !source_id_.empty(); }
+        const std::string &get_audio_source_id() const { return source_id_; }
+        const ActivateResult get_phase_one_result() const { return phase_one_result_; }
+
+        void take_audio_source_id(std::string &dest) { return dest.swap(source_id_); }
+    };
+
   private:
     std::string current_source_id_;
     std::string current_player_id_;
+
+    /*!
+     * ID of audio source to select when appliance get ready.
+     *
+     * This ID is only non-empty while waiting for the appliance to get ready
+     * to produce some audio. It is filled in when trying to activate an audio
+     * source at a time the appliance is in some state not yet suitable for
+     * playback (sleep mode or something like that).
+     */
+    PendingActivation pending_;
 
   public:
     Switch(const Switch &) = delete;
@@ -64,7 +107,10 @@ class Switch
     explicit Switch() {}
 
     ActivateResult activate_source(const Paths &paths, const char *source_id,
-                                   const std::string *&player_id);
+                                   const std::string *&player_id,
+                                   bool select_source_now);
+    ActivateResult complete_pending_source_activation(const Paths &paths,
+                                                      std::string *source_id);
     ReleaseResult release_path(const Paths &paths, bool kill_player,
                                const std::string *&player_id);
 
