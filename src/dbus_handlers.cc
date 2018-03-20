@@ -200,6 +200,15 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
     return TRUE;
 }
 
+/*!
+ * System policy: We assume completion of audio path switching is allowed in
+ *                case we don't know for sure.
+ */
+static bool is_audio_path_enable_allowed(const Maybe<bool> &state)
+{
+    return state == true || !state.is_known();
+}
+
 gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
                                           GDBusMethodInvocation *invocation,
                                           const gchar *source_id,
@@ -208,7 +217,8 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
     enter_audiopath_manager_handler(invocation);
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
-    const bool select_source_now(data->appliance_state_.is_audio_path_ready() == true);
+    const bool select_source_now =
+        is_audio_path_enable_allowed(data->appliance_state_.is_audio_path_ready());
     const std::string *player_id;
     bool success = false;
     bool suppress_signal = false;
@@ -600,7 +610,7 @@ gboolean dbusmethod_appliance_set_ready_state(tdbusaupathAppliance *object,
         break;
     }
 
-    if(data->appliance_state_.is_audio_path_ready() == true)
+    if(is_audio_path_enable_allowed(data->appliance_state_.is_audio_path_ready()))
         process_pending_audio_source_activation(object, invocation, *data);
     else
         tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
