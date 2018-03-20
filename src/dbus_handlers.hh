@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -27,6 +27,7 @@
 
 #include "audiopath.hh"
 #include "audiopathswitch.hh"
+#include "appliance.hh"
 
 namespace DBus
 {
@@ -39,6 +40,31 @@ class HandlerData
   public:
     AudioPath::Paths audio_paths_;
     AudioPath::Switch audio_path_switch_;
+    AudioPath::Appliance appliance_state_;
+
+    struct Pending
+    {
+        void *object_;
+        void *invocation_;
+
+        Pending():
+            object_(nullptr),
+            invocation_(nullptr)
+        {}
+
+        void set(void *object, void *invocation)
+        {
+            object_ = object;
+            invocation_ = invocation;
+        }
+
+        void clear()
+        {
+            object_ = nullptr;
+            invocation_ = nullptr;
+        }
+    }
+    pending_audio_source_activation_;
 
     HandlerData(const HandlerData &) = delete;
     HandlerData &operator=(const HandlerData &) = delete;

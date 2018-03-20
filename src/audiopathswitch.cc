@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -115,8 +115,10 @@ static bool select_source(const AudioPath::Source &source)
 AudioPath::Switch::ActivateResult
 AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                                    const char *source_id,
-                                   const std::string *&player_id)
+                                   const std::string *&player_id,
+                                   bool select_source_now)
 {
+    pending_.clear();
     player_id = nullptr;
 
     if(source_id[0] == '\0')
@@ -172,16 +174,50 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
         current_player_id_ = path.second->id_;
     }
 
+    if(select_source_now && !select_source(*path.first))
+        return ActivateResult::ERROR_SOURCE_FAILED;
+
+    const auto result = players_changed
+        ? ActivateResult::OK_PLAYER_SWITCHED
+        : ActivateResult::OK_PLAYER_SAME;
+
+    if(select_source_now)
+        current_source_id_ = path.first->id_;
+    else
+        pending_.set(path.first->id_, result);
+
+    return result;
+}
+
+AudioPath::Switch::ActivateResult
+AudioPath::Switch::complete_pending_source_activation(const AudioPath::Paths &paths,
+                                                      std::string *source_id)
+{
+    if(!pending_.have_pending_activation())
+        return ActivateResult::ERROR_SOURCE_UNKNOWN;
+
+    /*
+     * Essentially, this is the tail of #AudioPath::Switch::activate_source().
+     * We can assume that the head of that function has already been executed,
+     * i.e., the previous audio source has already been deselected and the
+     * correct player has been activated. All we really need to do in here is
+     * to activate the audio source so that the player raring to go can start
+     * playing.
+     */
+    const auto path(paths.lookup_path(pending_.get_audio_source_id()));
+    const auto result(pending_.get_phase_one_result());
+
+    if(source_id != nullptr)
+        pending_.take_audio_source_id(*source_id);
+
+    pending_.clear();
+
     if(!select_source(*path.first))
         return ActivateResult::ERROR_SOURCE_FAILED;
-    else
-    {
-        current_source_id_ = path.first->id_;
 
-        return players_changed
-            ? ActivateResult::OK_PLAYER_SWITCHED
-            : ActivateResult::OK_PLAYER_SAME;
-    }
+    current_source_id_ = path.first->id_;
+
+    return result;
 }
 
 AudioPath::Switch::ReleaseResult

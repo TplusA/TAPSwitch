@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of TAPSwitch.
 #
@@ -21,7 +21,7 @@ ACLOCAL_AMFLAGS = -I ../m4
 bin_PROGRAMS = tapswitch
 
 tapswitch_SOURCES = \
-    tapswitch.cc audiopath.hh dbus_proxy_wrapper.hh \
+    tapswitch.cc audiopath.hh dbus_proxy_wrapper.hh appliance.hh maybe.hh \
     messages.h messages.c messages_glib.h messages_glib.c \
     messages_dbus.c messages_dbus.h \
     dbus_iface.c dbus_iface.h dbus_iface_deep.h dbus_common.h \
@@ -50,6 +50,7 @@ tapswitch_LDADD = $(noinst_LTLIBRARIES) $(TAPSWITCH_DEPENDENCIES_LIBS)
 libaudiopath_la_SOURCES = \
     audiopath.cc audiopath.hh \
     audiopathswitch.cc audiopathswitch.hh \
+    appliance.cc appliance.hh maybe.hh \
     dbus_proxy_wrapper.hh
 libaudiopath_la_CFLAGS = $(AM_CFLAGS)
 libaudiopath_la_CXXFLAGS = $(AM_CXXFLAGS)

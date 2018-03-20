@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -38,6 +38,7 @@ struct dbus_data
     void *handler_data;
 
     tdbusaupathManager *audiopath_manager_iface;
+    tdbusaupathAppliance *audiopath_appliance_iface;
 
     tdbusdebugLogging *debug_logging_iface;
     tdbusdebugLoggingConfig *debug_logging_config_proxy;
@@ -61,6 +62,7 @@ static void bus_acquired(GDBusConnection *connection,
     msg_info("D-Bus \"%s\" acquired", name);
 
     data->audiopath_manager_iface = tdbus_aupath_manager_skeleton_new();
+    data->audiopath_appliance_iface = tdbus_aupath_appliance_skeleton_new();
     data->debug_logging_iface = tdbus_debug_logging_skeleton_new();
 
     g_signal_connect(data->audiopath_manager_iface, "handle-register-player",
@@ -88,11 +90,19 @@ static void bus_acquired(GDBusConnection *connection,
                      G_CALLBACK(dbusmethod_aupath_get_source_info),
                      data->handler_data);
 
+    g_signal_connect(data->audiopath_appliance_iface, "handle-set-ready-state",
+                     G_CALLBACK(dbusmethod_appliance_set_ready_state),
+                     data->handler_data);
+    g_signal_connect(data->audiopath_appliance_iface, "handle-get-state",
+                     G_CALLBACK(dbusmethod_appliance_get_state),
+                     data->handler_data);
+
     g_signal_connect(data->debug_logging_iface,
                      "handle-debug-level",
                      G_CALLBACK(msg_dbus_handle_debug_level), NULL);
 
     try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data->audiopath_manager_iface));
+    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data->audiopath_appliance_iface));
     try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data->debug_logging_iface));
 }
 
@@ -171,6 +181,7 @@ int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
     }
 
     log_assert(dbus_data.audiopath_manager_iface != NULL);
+    log_assert(dbus_data.audiopath_appliance_iface != NULL);
     log_assert(dbus_data.debug_logging_iface != NULL);
     log_assert(dbus_data.debug_logging_config_proxy != NULL);
 
@@ -191,6 +202,7 @@ void dbus_shutdown(GMainLoop *loop)
     g_bus_unown_name(dbus_data.owner_id);
 
     g_object_unref(dbus_data.audiopath_manager_iface);
+    g_object_unref(dbus_data.audiopath_appliance_iface);
     g_object_unref(dbus_data.debug_logging_iface);
     g_object_unref(dbus_data.debug_logging_config_proxy);
 
