@@ -686,8 +686,9 @@ void test_switch_path_while_appliance_is_not_ready()
 
     /* try to activate */
     mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_on_hold_sync(true, aupath_source_proxy('B'), "srcB1");
 
-    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
                                                 appliance.is_audio_path_ready() == true)));
 
@@ -702,7 +703,7 @@ void test_switch_path_while_appliance_is_not_ready()
 
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
     std::string source_id;
-    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
                         static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
     cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
     cppcut_assert_equal("srcB1", source_id.c_str());
@@ -723,8 +724,9 @@ void test_switch_path_twice_while_appliance_is_not_ready()
 
     /* try to activate the first time */
     mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_on_hold_sync(true, aupath_source_proxy('B'), "srcB1");
 
-    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
                                                 appliance.is_audio_path_ready() == true)));
 
@@ -735,10 +737,12 @@ void test_switch_path_twice_while_appliance_is_not_ready()
     mock_messages->check();
 
     /* try to activate the second time */
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_deselected_sync(true, aupath_source_proxy('B'), "srcB1");
     mock_audiopath_dbus->expect_tdbus_aupath_player_call_deactivate_sync(true, aupath_player_proxy('1'));
     mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('2'));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_on_hold_sync(true, aupath_source_proxy('C'), "srcC2");
 
-    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id,
                                                 appliance.is_audio_path_ready() == true)));
 
@@ -753,10 +757,57 @@ void test_switch_path_twice_while_appliance_is_not_ready()
 
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('C'), "srcC2");
     std::string source_id;
-    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
                         static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
     cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
     cppcut_assert_equal("srcC2", source_id.c_str());
+}
+
+/*!\test
+ * The current pending activation is not replaced by another activation request
+ * of the same path.
+ */
+void test_switch_to_same_path_twice_while_appliance_is_not_ready()
+{
+    AudioPath::Appliance appliance;
+    cut_assert_true(appliance.set_audio_path_blocked());
+
+    const std::string *player_id;
+
+    /* try to activate the first time */
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_on_hold_sync(true, aupath_source_proxy('B'), "srcB1");
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+                                                appliance.is_audio_path_ready() == true)));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    mock_audiopath_dbus->check();
+    mock_messages->check();
+
+    /* try to activate the same audio source again */
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+                                                appliance.is_audio_path_ready() == true)));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    mock_audiopath_dbus->check();
+    mock_messages->check();
+
+    /* appliance was blocked, now assume it has told us it is ready */
+    cut_assert_true(appliance.set_audio_path_ready());
+
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
+    std::string source_id;
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
+                        static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    cppcut_assert_equal("srcB1", source_id.c_str());
 }
 
 }

@@ -69,12 +69,14 @@ static bool activate_player(const AudioPath::Player &player)
 }
 
 static void deselect_source(const AudioPath::Paths &paths,
-                            std::string &source_id)
+                            std::string &source_id,
+                            AudioPath::Switch::PendingActivation &pending)
 {
-    if(source_id.empty())
+    if(source_id.empty() && !pending.have_pending_activation())
         return;
 
-    const AudioPath::Source *old_source = paths.lookup_source(source_id);
+    const std::string &deselected_id(!source_id.empty() ? source_id : pending.get_audio_source_id());
+    const AudioPath::Source *old_source = paths.lookup_source(deselected_id);
 
     msg_vinfo(MESSAGE_LEVEL_DEBUG,
               "%sDeselect audio source %s (%s)", debug_prefix,
@@ -82,7 +84,7 @@ static void deselect_source(const AudioPath::Paths &paths,
 
     GError *error = nullptr;
     tdbus_aupath_source_call_deselected_sync(old_source->get_dbus_proxy().get_as_nonconst(),
-                                             source_id.c_str(),
+                                             deselected_id.c_str(),
                                              nullptr, &error);
 
     if(!dbus_handle_error(&error, "Deselect source"))
@@ -90,22 +92,31 @@ static void deselect_source(const AudioPath::Paths &paths,
                   debug_prefix, old_source->id_.c_str());
 
     source_id.clear();
+    pending.clear();
 }
 
-static bool select_source(const AudioPath::Source &source)
+static bool select_source(const AudioPath::Source &source, bool is_final_select)
 {
-    msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sSelect audio source %s (%s)",
-              debug_prefix, source.id_.c_str(), source.name_.c_str());
+    msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sSelect audio source %s (%s)%s",
+              debug_prefix, source.id_.c_str(), source.name_.c_str(),
+              is_final_select ? "" : " (deferred)");
 
     GError *error = nullptr;
-    tdbus_aupath_source_call_selected_sync(source.get_dbus_proxy().get_as_nonconst(),
-                                           source.id_.c_str(),
-                                           nullptr, &error);
+
+    if(is_final_select)
+        tdbus_aupath_source_call_selected_sync(source.get_dbus_proxy().get_as_nonconst(),
+                                               source.id_.c_str(),
+                                               nullptr, &error);
+    else
+        tdbus_aupath_source_call_selected_on_hold_sync(source.get_dbus_proxy().get_as_nonconst(),
+                                                       source.id_.c_str(),
+                                                       nullptr, &error);
 
     if(!dbus_handle_error(&error, "Select source"))
     {
-        msg_error(0, LOG_ERR, "%sSelecting audio source %s failed",
-                  debug_prefix, source.id_.c_str());
+        msg_error(0, LOG_ERR, "%sSelecting audio source %s%s failed",
+                  debug_prefix, source.id_.c_str(),
+                  is_final_select ? "" : " (deferred)");
         return false;
     }
 
@@ -118,12 +129,12 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                                    const std::string *&player_id,
                                    bool select_source_now)
 {
-    pending_.clear();
     player_id = nullptr;
 
     if(source_id[0] == '\0')
     {
         msg_error(EINVAL, LOG_ERR, "%sEmpty audio source ID", debug_prefix);
+        pending_.clear();
         return ActivateResult::ERROR_SOURCE_UNKNOWN;
     }
 
@@ -132,7 +143,18 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
         msg_vinfo(MESSAGE_LEVEL_DEBUG,
                   "%sAudio source not changed", debug_prefix);
         player_id = &current_player_id_;
+        log_assert(!pending_.have_pending_activation());
         return ActivateResult::OK_UNCHANGED;
+    }
+
+    if(pending_.have_pending_activation() &&
+       source_id == pending_.get_audio_source_id())
+    {
+        msg_vinfo(MESSAGE_LEVEL_DEBUG,
+                  "%sAudio source activation for %s already pending",
+                  debug_prefix, source_id);
+        player_id = &current_player_id_;
+        return ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED;
     }
 
     const auto path(paths.lookup_path(source_id));
@@ -143,6 +165,7 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
         {
             msg_error(0, LOG_NOTICE,
                       "%sUnknown audio source %s", debug_prefix, source_id);
+            pending_.clear();
             return ActivateResult::ERROR_SOURCE_UNKNOWN;
         }
         else
@@ -152,6 +175,7 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                       debug_prefix,
                       path.first->player_id_.c_str(),
                       path.first->id_.c_str(), path.first->name_.c_str());
+            pending_.clear();
             return ActivateResult::ERROR_PLAYER_UNKNOWN;
         }
     }
@@ -160,7 +184,7 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
 
     player_id = &path.second->id_;
 
-    deselect_source(paths, current_source_id_);
+    deselect_source(paths, current_source_id_, pending_);
 
     const bool players_changed = (*player_id != current_player_id_);
 
@@ -174,12 +198,16 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
         current_player_id_ = path.second->id_;
     }
 
-    if(select_source_now && !select_source(*path.first))
+    if(!select_source(*path.first, select_source_now))
         return ActivateResult::ERROR_SOURCE_FAILED;
 
     const auto result = players_changed
-        ? ActivateResult::OK_PLAYER_SWITCHED
-        : ActivateResult::OK_PLAYER_SAME;
+        ? (select_source_now
+           ? ActivateResult::OK_PLAYER_SWITCHED
+           : ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED)
+        : (select_source_now
+           ? ActivateResult::OK_PLAYER_SAME
+           : ActivateResult::OK_PLAYER_SAME_SOURCE_DEFERRED);
 
     if(select_source_now)
         current_source_id_ = path.first->id_;
@@ -212,7 +240,7 @@ AudioPath::Switch::complete_pending_source_activation(const AudioPath::Paths &pa
 
     pending_.clear();
 
-    if(!select_source(*path.first))
+    if(!select_source(*path.first, true))
         return ActivateResult::ERROR_SOURCE_FAILED;
 
     current_source_id_ = path.first->id_;
@@ -233,8 +261,7 @@ AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
               have_deselected_source ? "<NONE>" : current_source_id_.c_str(),
               kill_player ? "deactivate" : "keep");
 
-    if(have_deselected_source)
-        deselect_source(paths, current_source_id_);
+    deselect_source(paths, current_source_id_, pending_);
 
     if(have_deactivated_player)
         deactivate_player(paths, current_player_id_);

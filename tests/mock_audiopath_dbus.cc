@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -29,6 +29,7 @@ enum class AudiopathFn
 {
     player_activate,
     player_deactivate,
+    source_selected_on_hold,
     source_selected,
     source_deselected,
 
@@ -53,6 +54,10 @@ static std::ostream &operator<<(std::ostream &os, const AudiopathFn id)
 
       case AudiopathFn::player_deactivate:
         os << "player_deactivate";
+        break;
+
+      case AudiopathFn::source_selected_on_hold:
+        os << "source_selected_on_hold";
         break;
 
       case AudiopathFn::source_selected:
@@ -151,6 +156,12 @@ void MockAudiopathDBus::expect_tdbus_aupath_player_call_deactivate_sync(gboolean
                                    retval, object));
 }
 
+void MockAudiopathDBus::expect_tdbus_aupath_source_call_selected_on_hold_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id)
+{
+    expectations_->add(Expectation(AudiopathFn::source_selected_on_hold,
+                                   retval, object, arg_source_id));
+}
+
 void MockAudiopathDBus::expect_tdbus_aupath_source_call_selected_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id)
 {
     expectations_->add(Expectation(AudiopathFn::source_selected,
@@ -210,6 +221,28 @@ gboolean tdbus_aupath_player_call_deactivate_sync(tdbusaupathPlayer *proxy, GCan
         else
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
                                  "Mock player %c deactivation failure",
+                                 extract_id(proxy));
+    }
+
+    return expect.d.ret_bool_;
+}
+
+gboolean tdbus_aupath_source_call_selected_on_hold_sync(tdbusaupathSource *proxy, const gchar *arg_source_id, GCancellable *cancellable, GError **error)
+{
+    const auto &expect(mock_audiopath_dbus_singleton->expectations_->get_next_expectation(__func__));
+
+    cppcut_assert_equal(expect.d.function_id_, AudiopathFn::source_selected_on_hold);
+    cppcut_assert_equal(expect.d.arg_object_, static_cast<void *>(proxy));
+    cppcut_assert_not_null(arg_source_id);
+    cppcut_assert_equal(expect.d.arg_source_id_.c_str(), arg_source_id);
+
+    if(error != NULL)
+    {
+        if(expect.d.ret_bool_)
+            *error = NULL;
+        else
+            *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
+                                 "Mock source %c deferred selection failure",
                                  extract_id(proxy));
     }
 
