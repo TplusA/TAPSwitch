@@ -25,6 +25,8 @@
  */
 /*!@{*/
 
+#include <vector>
+
 #include "audiopath.hh"
 #include "audiopathswitch.hh"
 #include "appliance.hh"
@@ -44,27 +46,16 @@ class HandlerData
 
     struct Pending
     {
-        void *object_;
-        void *invocation_;
+        void *const object_;
+        void *const invocation_;
 
-        Pending():
-            object_(nullptr),
-            invocation_(nullptr)
+        constexpr Pending(void *object, void *invocation):
+            object_(object),
+            invocation_(invocation)
         {}
+    };
 
-        void set(void *object, void *invocation)
-        {
-            object_ = object;
-            invocation_ = invocation;
-        }
-
-        void clear()
-        {
-            object_ = nullptr;
-            invocation_ = nullptr;
-        }
-    }
-    pending_audio_source_activation_;
+    std::vector<Pending> pending_audio_source_activations_;
 
     HandlerData(const HandlerData &) = delete;
     HandlerData &operator=(const HandlerData &) = delete;
