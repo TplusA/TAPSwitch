@@ -42,7 +42,9 @@ class Switch
         ERROR_PLAYER_FAILED,
         OK_UNCHANGED,
         OK_PLAYER_SAME,
+        OK_PLAYER_SAME_SOURCE_DEFERRED,
         OK_PLAYER_SWITCHED,
+        OK_PLAYER_SWITCHED_SOURCE_DEFERRED,
     };
 
     enum class ReleaseResult
@@ -109,8 +111,20 @@ class Switch
     ActivateResult activate_source(const Paths &paths, const char *source_id,
                                    const std::string *&player_id,
                                    bool select_source_now);
+
+    /*!
+     * Try to complete a deferred audio path activation.
+     *
+     * Note that at this point the return values for deferred audio path
+     * activation are to be considered equivalent to the values for completed
+     * audio path activation. That is, the caller must handle
+     * #AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED
+     * the same way as #AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED
+     * (same for #AudioPath::Switch::ActivateResult::OK_PLAYER_SAME).
+     */
     ActivateResult complete_pending_source_activation(const Paths &paths,
                                                       std::string *source_id);
+
     ReleaseResult release_path(const Paths &paths, bool kill_player,
                                const std::string *&player_id);
 

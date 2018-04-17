@@ -20,6 +20,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <unordered_set>
+
 #include "dbus_handlers.hh"
 #include "dbus_handlers.h"
 #include "dbus_iface_deep.h"
@@ -200,6 +202,37 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
     return TRUE;
 }
 
+static void emit_path_switch_signal(tdbusaupathManager *object,
+                                    const gchar *source_id,
+                                    const std::string *const player_id,
+                                    bool success, bool is_deferred)
+{
+    if(success)
+    {
+        log_assert(player_id != nullptr);
+
+        if(is_deferred)
+            tdbus_aupath_manager_emit_path_deferred(object, source_id,
+                                                    player_id->c_str());
+        else
+            tdbus_aupath_manager_emit_path_activated(object, source_id,
+                                                     player_id->c_str());
+    }
+    else
+    {
+        if(is_deferred)
+            tdbus_aupath_manager_emit_path_deferred(object, "",
+                                                    (player_id != nullptr)
+                                                    ? player_id->c_str()
+                                                    : "");
+        else
+            tdbus_aupath_manager_emit_path_activated(object, "",
+                                                     (player_id != nullptr)
+                                                     ? player_id->c_str()
+                                                     : "");
+    }
+}
+
 /*!
  * System policy: We assume completion of audio path switching is allowed in
  *                case we don't know for sure.
@@ -217,11 +250,12 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
     enter_audiopath_manager_handler(invocation);
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
-    const bool select_source_now =
+    bool select_source_now =
         is_audio_path_enable_allowed(data->appliance_state_.is_audio_path_ready());
     const std::string *player_id;
     bool success = false;
-    bool suppress_signal = false;
+    bool suppress_activated_signal = false;
+    bool is_activation_deferred = false;
 
     msg_vinfo(MESSAGE_LEVEL_DIAG, "Requested audio source \"%s\"", source_id);
 
@@ -233,7 +267,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         g_dbus_method_invocation_return_error_literal(invocation,
                                                       G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
                                                       "Source unknown");
-        suppress_signal = true;
+        suppress_activated_signal = true;
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED:
@@ -246,7 +280,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         g_dbus_method_invocation_return_error_literal(invocation,
                                                       G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
                                                       "No player associated");
-        suppress_signal = true;
+        suppress_activated_signal = true;
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_PLAYER_FAILED:
@@ -256,23 +290,28 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         break;
 
       case AudioPath::Switch::ActivateResult::OK_UNCHANGED:
-        suppress_signal = true;
+        tdbus_aupath_manager_complete_request_source(object, invocation,
+                                                     player_id->c_str(), false);
+        success = true;
+        select_source_now = true;
+        suppress_activated_signal = true;
+        break;
 
-        /* fall-through */
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME_SOURCE_DEFERRED:
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED:
+        success = true;
+        is_activation_deferred = true;
+        break;
 
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME:
-        if(select_source_now)
-            tdbus_aupath_manager_complete_request_source(object, invocation,
-                                                         player_id->c_str(), false);
-
+        tdbus_aupath_manager_complete_request_source(object, invocation,
+                                                     player_id->c_str(), false);
         success = true;
         break;
 
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED:
-        if(select_source_now)
-            tdbus_aupath_manager_complete_request_source(object, invocation,
-                                                         player_id->c_str(), true);
-
+        tdbus_aupath_manager_complete_request_source(object, invocation,
+                                                     player_id->c_str(), true);
         success = true;
         break;
     }
@@ -282,35 +321,26 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         if(select_source_now)
             msg_vinfo(MESSAGE_LEVEL_DIAG,
                       "Activated audio source %s, %semitting signal",
-                      source_id, suppress_signal ? "not " : "");
+                      source_id, suppress_activated_signal ? "not " : "");
         else
         {
             msg_vinfo(MESSAGE_LEVEL_DIAG,
                       "Activation of audio source %s deferred until appliance is ready",
                       source_id);
-            suppress_signal = true;
 
             g_object_ref(G_OBJECT(object));
             g_object_ref(G_OBJECT(invocation));
-            data->pending_audio_source_activation_.set(object, invocation);
+            data->pending_audio_source_activations_.emplace_back(object, invocation);
         }
     }
     else
         msg_error(0, LOG_ERR,
                   "Failed activating audio source %s, %semitting signal",
-                  source_id, suppress_signal ? "not " : "");
+                  source_id, suppress_activated_signal ? "not " : "");
 
-    if(suppress_signal)
-        return TRUE;
-
-    if(success)
-        tdbus_aupath_manager_emit_path_activated(object, source_id,
-                                                 player_id->c_str());
-    else
-        tdbus_aupath_manager_emit_path_activated(object, "",
-                                                 (player_id != nullptr)
-                                                 ? player_id->c_str()
-                                                 : "");
+    if(!suppress_activated_signal)
+        emit_path_switch_signal(object, source_id, player_id,
+                                success, is_activation_deferred);
 
     return TRUE;
 }
@@ -324,7 +354,7 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
     const std::string *player_id;
-    bool suppress_signal = false;
+    bool suppress_activated_signal = false;
 
     switch(data->audio_path_switch_.release_path(data->audio_paths_,
                                                  deactivate_player, player_id))
@@ -335,13 +365,13 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
         break;
 
       case AudioPath::Switch::ReleaseResult::UNCHANGED:
-        suppress_signal = true;
+        suppress_activated_signal = true;
         break;
     }
 
     tdbus_aupath_manager_complete_release_path(object, invocation);
 
-    if(!suppress_signal)
+    if(!suppress_activated_signal)
         tdbus_aupath_manager_emit_path_activated(object, "",
                                                  (player_id != nullptr)
                                                  ? player_id->c_str()
@@ -463,10 +493,11 @@ static void enter_audiopath_appliance_handler(GDBusMethodInvocation *invocation)
               g_dbus_method_invocation_get_method_name(invocation));
 }
 
-static tdbusaupathManager *
-complete_pending(DBus::HandlerData::Pending &pending,
-                 const std::string &player_id, bool have_switched,
-                 const char *error_message = nullptr)
+void complete_pending_call(const DBus::HandlerData::Pending &pending,
+                           const std::string &player_id, bool have_switched,
+                           const char *error_message,
+                           std::unordered_set<tdbusaupathManager *> &manager_objects,
+                           bool suppress_activated_signal)
 {
     auto *object = static_cast<tdbusaupathManager *>(pending.object_);
     auto *invocation = static_cast<GDBusMethodInvocation *>(pending.invocation_);
@@ -482,20 +513,81 @@ complete_pending(DBus::HandlerData::Pending &pending,
                                                       G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
                                                       error_message);
 
+    if(!suppress_activated_signal &&
+       manager_objects.find(object) == manager_objects.end())
+    {
+        g_object_ref(G_OBJECT(object));
+        manager_objects.insert(object);
+    }
+
+    g_object_unref(G_OBJECT(object));
     g_object_unref(G_OBJECT(invocation));
+}
+
+static void log_deferred_activation(const std::string &source_id,
+                                    bool success, bool suppress_activated_signal)
+{
+    if(!source_id.empty())
+    {
+        if(success)
+            msg_vinfo(MESSAGE_LEVEL_DIAG,
+                      "Deferred activation of audio source %s, %semitting signal",
+                      source_id.c_str(), suppress_activated_signal ? "not " : "");
+        else
+            msg_error(0, LOG_ERR,
+                      "Deferred activation of audio source %s failed, %semitting signal",
+                      source_id.c_str(), suppress_activated_signal ? "not " : "");
+    }
+}
+
+static void emit_path_activated(tdbusaupathManager *manager_object,
+                                const std::string &source_id,
+                                const AudioPath::Switch &audio_path_switch,
+                                bool success)
+{
+    if(manager_object == nullptr)
+        return;
+
+    if(success)
+        tdbus_aupath_manager_emit_path_activated(manager_object, source_id.c_str(),
+                                                 audio_path_switch.get_player_id().c_str());
+    else
+        tdbus_aupath_manager_emit_path_activated(manager_object, "",
+                                                 audio_path_switch.get_player_id().c_str());
+
+    g_object_unref(G_OBJECT(manager_object));
+}
+
+static void complete_pending(std::vector<DBus::HandlerData::Pending> &pending,
+                             const std::string &source_id,
+                             const AudioPath::Switch &audio_path_switch,
+                             bool success, bool suppress_activated_signal,
+                             bool have_switched,
+                             const char *error_message = nullptr,
+                             std::function<void()> &&after_completion = nullptr)
+{
+    log_deferred_activation(source_id, success, suppress_activated_signal);
+
+    std::unordered_set<tdbusaupathManager *> manager_objects;
+
+    for(const auto &p : pending)
+        complete_pending_call(p, audio_path_switch.get_player_id(),
+                              have_switched, error_message,
+                              manager_objects, suppress_activated_signal);
+
+    if(after_completion != nullptr)
+        after_completion();
+
     pending.clear();
 
-    return object;
+    for(const auto &m : manager_objects)
+        emit_path_activated(m, source_id, audio_path_switch, success);
 }
 
 static void process_pending_audio_source_activation(tdbusaupathAppliance *object,
                                                     GDBusMethodInvocation *invocation,
                                                     DBus::HandlerData &data)
 {
-    bool success = false;
-    bool suppress_signal = false;
-
-    tdbusaupathManager *pending_object = nullptr;
     std::string source_id;
     const auto result =
         data.audio_path_switch_.complete_pending_source_activation(data.audio_paths_,
@@ -505,80 +597,52 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
     {
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN:
         /* had no pending activation */
-        success = true;
-        suppress_signal = true;
         tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
+        log_deferred_activation(source_id, true, true);
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED:
-        pending_object =
-            complete_pending(data.pending_audio_source_activation_,
-                             data.audio_path_switch_.get_player_id(),
-                             false, "Source process failed");
+        complete_pending(data.pending_audio_source_activations_, source_id,
+                         data.audio_path_switch_, false, false, false,
+                         "Source process failed");
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_PLAYER_UNKNOWN:
       case AudioPath::Switch::ActivateResult::ERROR_PLAYER_FAILED:
-        pending_object =
-            complete_pending(data.pending_audio_source_activation_,
-                             data.audio_path_switch_.get_player_id(),
-                             false,
-                             "Unexpected result while completing pending audio source activation");
-        g_dbus_method_invocation_return_error(
-                invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
-                "Unexpected result %d while completing pending audio source activation",
-                static_cast<int>(result));
+        complete_pending(data.pending_audio_source_activations_, source_id,
+                         data.audio_path_switch_, false, false, false,
+                         "Unexpected result while completing pending audio source activation",
+                         [invocation, result] ()
+                         {
+                             g_dbus_method_invocation_return_error(
+                                 invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
+                                 "Unexpected result %d while completing pending audio source activation",
+                                 static_cast<int>(result));
+                         });
         break;
 
       case AudioPath::Switch::ActivateResult::OK_UNCHANGED:
-        suppress_signal = true;
-
-        /* fall-through */
-
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME:
-        pending_object =
-            complete_pending(data.pending_audio_source_activation_,
-                             data.audio_path_switch_.get_player_id(),
-                             false);
-        tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
-        success = true;
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME_SOURCE_DEFERRED:
+        complete_pending(data.pending_audio_source_activations_, source_id,
+                         data.audio_path_switch_, true,
+                         result == AudioPath::Switch::ActivateResult::OK_UNCHANGED,
+                         false, nullptr,
+                         [object, invocation] ()
+                         {
+                             tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
+                         });
         break;
 
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED:
-        pending_object =
-            complete_pending(data.pending_audio_source_activation_,
-                             data.audio_path_switch_.get_player_id(),
-                             true);
-        tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
-        success = true;
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED:
+        complete_pending(data.pending_audio_source_activations_, source_id,
+                         data.audio_path_switch_, true, false, true, nullptr,
+                         [object, invocation] ()
+                         {
+                             tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
+                         });
         break;
-    }
-
-    if(!source_id.empty())
-    {
-        if(success)
-            msg_vinfo(MESSAGE_LEVEL_DIAG,
-                      "Deferred activation of audio source %s, %semitting signal",
-                      source_id.c_str(), suppress_signal ? "not " : "");
-        else
-            msg_error(0, LOG_ERR,
-                      "Deferred activation of audio source %s failed, %semitting signal",
-                      source_id.c_str(), suppress_signal ? "not " : "");
-    }
-
-    if(pending_object != nullptr)
-    {
-        if(!suppress_signal)
-        {
-            if(success)
-                tdbus_aupath_manager_emit_path_activated(pending_object, source_id.c_str(),
-                                                         data.audio_path_switch_.get_player_id().c_str());
-            else
-                tdbus_aupath_manager_emit_path_activated(pending_object, "",
-                                                         data.audio_path_switch_.get_player_id().c_str());
-        }
-
-        g_object_unref(G_OBJECT(pending_object));
     }
 }
 
