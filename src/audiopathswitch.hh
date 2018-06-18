@@ -21,6 +21,8 @@
 
 #include <string>
 
+#include "gvariantwrapper.hh"
+
 /*!
  * \addtogroup audiopath
  */
@@ -59,6 +61,7 @@ class Switch
     {
       private:
         std::string source_id_;
+        GVariantWrapper request_data_;
         ActivateResult phase_one_result_;
 
       public:
@@ -69,16 +72,21 @@ class Switch
             phase_one_result_(ActivateResult::ERROR_SOURCE_UNKNOWN)
         {}
 
-        void set(const std::string &source_id, ActivateResult result)
+        void set(const std::string &source_id, GVariantWrapper &&request_data,
+                 ActivateResult result)
         {
             source_id_ = source_id;
+            request_data_ = std::move(request_data);
             phase_one_result_ = result;
         }
 
-        void clear()
+        GVariantWrapper clear()
         {
             source_id_.clear();
             phase_one_result_ = ActivateResult::ERROR_SOURCE_UNKNOWN;
+
+            auto reqdata(std::move(request_data_));
+            return reqdata;
         }
 
         bool have_pending_activation() const { return !source_id_.empty(); }
@@ -112,6 +120,11 @@ class Switch
                                    const std::string *&player_id,
                                    bool select_source_now);
 
+    ActivateResult activate_source(const Paths &paths, const char *source_id,
+                                   const std::string *&player_id,
+                                   bool select_source_now,
+                                   GVariantWrapper &&request_data);
+
     /*!
      * Try to complete a deferred audio path activation.
      *
@@ -127,6 +140,10 @@ class Switch
 
     ReleaseResult release_path(const Paths &paths, bool kill_player,
                                const std::string *&player_id);
+
+    ReleaseResult release_path(const Paths &paths, bool kill_player,
+                               const std::string *&player_id,
+                               GVariantWrapper &&request_data);
 
     const std::string &get_player_id() const { return current_player_id_; }
 };

@@ -22,6 +22,8 @@
 
 #include <unordered_set>
 
+#include <glib.h>
+
 #include "dbus_handlers.hh"
 #include "dbus_handlers.h"
 #include "dbus_iface_deep.h"
@@ -245,6 +247,7 @@ static bool is_audio_path_enable_allowed(const Maybe<bool> &state)
 gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
                                           GDBusMethodInvocation *invocation,
                                           const gchar *source_id,
+                                          GVariant *arg_request_data,
                                           gpointer user_data)
 {
     enter_audiopath_manager_handler(invocation);
@@ -252,6 +255,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
     auto *data = static_cast<DBus::HandlerData *>(user_data);
     bool select_source_now =
         is_audio_path_enable_allowed(data->appliance_state_.is_audio_path_ready());
+    GVariantWrapper request_data(arg_request_data);
     const std::string *player_id;
     bool success = false;
     bool suppress_activated_signal = false;
@@ -261,7 +265,8 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
 
     switch(data->audio_path_switch_.activate_source(data->audio_paths_,
                                                     source_id, player_id,
-                                                    select_source_now))
+                                                    select_source_now,
+                                                    std::move(request_data)))
     {
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN:
         g_dbus_method_invocation_return_error_literal(invocation,
@@ -348,16 +353,19 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
 gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
                                         GDBusMethodInvocation *invocation,
                                         gboolean deactivate_player,
+                                        GVariant *arg_request_data,
                                         gpointer user_data)
 {
     enter_audiopath_manager_handler(invocation);
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
+    GVariantWrapper request_data(arg_request_data);
     const std::string *player_id;
     bool suppress_activated_signal = false;
 
     switch(data->audio_path_switch_.release_path(data->audio_paths_,
-                                                 deactivate_player, player_id))
+                                                 deactivate_player, player_id,
+                                                 std::move(request_data)))
     {
       case AudioPath::Switch::ReleaseResult::SOURCE_DESELECTED:
       case AudioPath::Switch::ReleaseResult::PLAYER_DEACTIVATED:

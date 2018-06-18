@@ -49,10 +49,12 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
 gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
                                           GDBusMethodInvocation *invocation,
                                           const gchar *source_id,
+                                          GVariant *arg_request_data,
                                           gpointer user_data);
 gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
                                         GDBusMethodInvocation *invocation,
                                         gboolean deactivate_player,
+                                        GVariant *arg_request_data,
                                         gpointer user_data);
 gboolean dbusmethod_aupath_get_active_player(tdbusaupathManager *object,
                                              GDBusMethodInvocation *invocation,

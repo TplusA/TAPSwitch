@@ -20,6 +20,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <glib.h>
+
 #include "audiopathswitch.hh"
 #include "audiopath.hh"
 #include "dbus_iface_deep.h"
@@ -28,6 +30,7 @@
 static const char debug_prefix[] = "AUDIO SOURCE SWITCH: ";
 
 static void deactivate_player(const AudioPath::Paths &paths,
+                              const GVariantWrapper &request_data,
                               std::string &player_id)
 {
     if(player_id.empty())
@@ -41,6 +44,7 @@ static void deactivate_player(const AudioPath::Paths &paths,
 
     GError *error = nullptr;
     tdbus_aupath_player_call_deactivate_sync(old_player->get_dbus_proxy().get_as_nonconst(),
+                                             GVariantWrapper::get(request_data),
                                              nullptr, &error);
 
     if(!dbus_handle_error(&error, "Deactivate player"))
@@ -50,13 +54,15 @@ static void deactivate_player(const AudioPath::Paths &paths,
     player_id.clear();
 }
 
-static bool activate_player(const AudioPath::Player &player)
+static bool activate_player(const AudioPath::Player &player,
+                            const GVariantWrapper &request_data)
 {
     msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sActivate player %s (%s)",
               debug_prefix, player.id_.c_str(), player.name_.c_str());
 
     GError *error = nullptr;
     tdbus_aupath_player_call_activate_sync(player.get_dbus_proxy().get_as_nonconst(),
+                                           GVariantWrapper::get(request_data),
                                            nullptr, &error);
     if(!dbus_handle_error(&error, "Activate player"))
     {
@@ -69,6 +75,7 @@ static bool activate_player(const AudioPath::Player &player)
 }
 
 static void deselect_source(const AudioPath::Paths &paths,
+                            const GVariantWrapper &request_data,
                             std::string &source_id,
                             AudioPath::Switch::PendingActivation &pending)
 {
@@ -85,6 +92,7 @@ static void deselect_source(const AudioPath::Paths &paths,
     GError *error = nullptr;
     tdbus_aupath_source_call_deselected_sync(old_source->get_dbus_proxy().get_as_nonconst(),
                                              deselected_id.c_str(),
+                                             GVariantWrapper::get(request_data),
                                              nullptr, &error);
 
     if(!dbus_handle_error(&error, "Deselect source"))
@@ -95,7 +103,8 @@ static void deselect_source(const AudioPath::Paths &paths,
     pending.clear();
 }
 
-static bool select_source(const AudioPath::Source &source, bool is_final_select)
+static bool select_source(const AudioPath::Source &source, bool is_final_select,
+                          GVariantWrapper &&request_data)
 {
     msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sSelect audio source %s (%s)%s",
               debug_prefix, source.id_.c_str(), source.name_.c_str(),
@@ -106,10 +115,12 @@ static bool select_source(const AudioPath::Source &source, bool is_final_select)
     if(is_final_select)
         tdbus_aupath_source_call_selected_sync(source.get_dbus_proxy().get_as_nonconst(),
                                                source.id_.c_str(),
+                                               GVariantWrapper::get(request_data),
                                                nullptr, &error);
     else
         tdbus_aupath_source_call_selected_on_hold_sync(source.get_dbus_proxy().get_as_nonconst(),
                                                        source.id_.c_str(),
+                                                       GVariantWrapper::get(request_data),
                                                        nullptr, &error);
 
     if(!dbus_handle_error(&error, "Select source"))
@@ -128,6 +139,21 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                                    const char *source_id,
                                    const std::string *&player_id,
                                    bool select_source_now)
+{
+    GVariantDict dict;
+    g_variant_dict_init(&dict, nullptr);
+    auto request_data(GVariantWrapper(g_variant_dict_end(&dict)));
+
+    return activate_source(paths, source_id, player_id, select_source_now,
+                           std::move(request_data));
+}
+
+AudioPath::Switch::ActivateResult
+AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
+                                   const char *source_id,
+                                   const std::string *&player_id,
+                                   bool select_source_now,
+                                   GVariantWrapper &&request_data)
 {
     player_id = nullptr;
 
@@ -184,21 +210,21 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
 
     player_id = &path.second->id_;
 
-    deselect_source(paths, current_source_id_, pending_);
+    deselect_source(paths, request_data, current_source_id_, pending_);
 
     const bool players_changed = (*player_id != current_player_id_);
 
     if(players_changed)
     {
-        deactivate_player(paths, current_player_id_);
+        deactivate_player(paths, request_data, current_player_id_);
 
-        if(!activate_player(*path.second))
+        if(!activate_player(*path.second, request_data))
             return ActivateResult::ERROR_PLAYER_FAILED;
 
         current_player_id_ = path.second->id_;
     }
 
-    if(!select_source(*path.first, select_source_now))
+    if(!select_source(*path.first, select_source_now, GVariantWrapper(request_data)))
         return ActivateResult::ERROR_SOURCE_FAILED;
 
     const auto result = players_changed
@@ -212,7 +238,7 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
     if(select_source_now)
         current_source_id_ = path.first->id_;
     else
-        pending_.set(path.first->id_, result);
+        pending_.set(path.first->id_, std::move(request_data), result);
 
     return result;
 }
@@ -238,9 +264,9 @@ AudioPath::Switch::complete_pending_source_activation(const AudioPath::Paths &pa
     if(source_id != nullptr)
         pending_.take_audio_source_id(*source_id);
 
-    pending_.clear();
+    auto request_data(pending_.clear());
 
-    if(!select_source(*path.first, true))
+    if(!select_source(*path.first, true, std::move(request_data)))
         return ActivateResult::ERROR_SOURCE_FAILED;
 
     current_source_id_ = path.first->id_;
@@ -252,6 +278,18 @@ AudioPath::Switch::ReleaseResult
 AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
                                 const std::string *&player_id)
 {
+    GVariantDict dict;
+    g_variant_dict_init(&dict, nullptr);
+    auto request_data(GVariantWrapper(g_variant_dict_end(&dict)));
+
+    return release_path(paths, kill_player, player_id, std::move(request_data));
+}
+
+AudioPath::Switch::ReleaseResult
+AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
+                                const std::string *&player_id,
+                                GVariantWrapper &&request_data)
+{
     const bool have_deselected_source = !current_source_id_.empty();
     const bool have_deactivated_player = kill_player && !current_player_id_.empty();
 
@@ -261,10 +299,10 @@ AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
               have_deselected_source ? "<NONE>" : current_source_id_.c_str(),
               kill_player ? "deactivate" : "keep");
 
-    deselect_source(paths, current_source_id_, pending_);
+    deselect_source(paths, request_data, current_source_id_, pending_);
 
     if(have_deactivated_player)
-        deactivate_player(paths, current_player_id_);
+        deactivate_player(paths, request_data, current_player_id_);
 
     player_id = current_player_id_.empty() ? nullptr : &current_player_id_;
 
