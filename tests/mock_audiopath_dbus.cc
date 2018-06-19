@@ -261,10 +261,10 @@ gboolean tdbus_aupath_player_call_activate_sync(tdbusaupathPlayer *proxy, GVaria
     cppcut_assert_equal(expect.d.arg_object_, static_cast<void *>(proxy));
     check_request_data(expect.d.arg_request_data_, arg_request_data);
 
-    if(error != NULL)
+    if(error != nullptr)
     {
         if(expect.d.ret_bool_)
-            *error = NULL;
+            *error = nullptr;
         else
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
                                  "Mock player %c activation failure",
@@ -282,10 +282,10 @@ gboolean tdbus_aupath_player_call_deactivate_sync(tdbusaupathPlayer *proxy, GVar
     cppcut_assert_equal(expect.d.arg_object_, static_cast<void *>(proxy));
     check_request_data(expect.d.arg_request_data_, arg_request_data);
 
-    if(error != NULL)
+    if(error != nullptr)
     {
         if(expect.d.ret_bool_)
-            *error = NULL;
+            *error = nullptr;
         else
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
                                  "Mock player %c deactivation failure",
@@ -305,10 +305,10 @@ gboolean tdbus_aupath_source_call_selected_on_hold_sync(tdbusaupathSource *proxy
     cppcut_assert_equal(expect.d.arg_source_id_.c_str(), arg_source_id);
     check_request_data(expect.d.arg_request_data_, arg_request_data);
 
-    if(error != NULL)
+    if(error != nullptr)
     {
         if(expect.d.ret_bool_)
-            *error = NULL;
+            *error = nullptr;
         else
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
                                  "Mock source %c deferred selection failure",
@@ -328,10 +328,10 @@ gboolean tdbus_aupath_source_call_selected_sync(tdbusaupathSource *proxy, const 
     cppcut_assert_equal(expect.d.arg_source_id_.c_str(), arg_source_id);
     check_request_data(expect.d.arg_request_data_, arg_request_data);
 
-    if(error != NULL)
+    if(error != nullptr)
     {
         if(expect.d.ret_bool_)
-            *error = NULL;
+            *error = nullptr;
         else
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
                                  "Mock source %c selection failure",
@@ -351,10 +351,10 @@ gboolean tdbus_aupath_source_call_deselected_sync(tdbusaupathSource *proxy, cons
     cppcut_assert_equal(expect.d.arg_source_id_.c_str(), arg_source_id);
     check_request_data(expect.d.arg_request_data_, arg_request_data);
 
-    if(error != NULL)
+    if(error != nullptr)
     {
         if(expect.d.ret_bool_)
-            *error = NULL;
+            *error = nullptr;
         else
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_FAILED,
                                  "Mock source %c deselection failure",
