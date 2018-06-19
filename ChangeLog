@@ -1,3 +1,16 @@
+2018-06-20  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.4 released.
+
+	* Audio sources: The D-Bus interfaces for requesting audio path
+	  switching now require a dictionary parameter. This dictionary
+	  contains arbitrary data which is passed to the audio source and
+	  audio player involved in the audio path switch.
+
+	  So far, our only use case for this change is passing standby
+	  information when switching to inactive state as required for Roon
+	  certification.
+
 2018-04-17  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.3 released.
