@@ -51,6 +51,7 @@ libaudiopath_la_SOURCES = \
     audiopath.cc audiopath.hh \
     audiopathswitch.cc audiopathswitch.hh \
     appliance.cc appliance.hh maybe.hh \
+    gvariantwrapper.cc gvariantwrapper.hh \
     dbus_proxy_wrapper.hh
 libaudiopath_la_CFLAGS = $(AM_CFLAGS)
 libaudiopath_la_CXXFLAGS = $(AM_CXXFLAGS)

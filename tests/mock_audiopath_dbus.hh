@@ -20,6 +20,7 @@
 #define MOCK_AUDIOPATH_DBUS_CC
 
 #include "audiopath_dbus.h"
+#include "gvariantwrapper.hh"
 #include "mock_expectation.hh"
 
 class MockAudiopathDBus
@@ -39,10 +40,15 @@ class MockAudiopathDBus
     void check() const;
 
     void expect_tdbus_aupath_player_call_activate_sync(gboolean retval, tdbusaupathPlayer *object);
+    void expect_tdbus_aupath_player_call_activate_sync(gboolean retval, tdbusaupathPlayer *object, GVariantWrapper &&request_data);
     void expect_tdbus_aupath_player_call_deactivate_sync(gboolean retval, tdbusaupathPlayer *object);
+    void expect_tdbus_aupath_player_call_deactivate_sync(gboolean retval, tdbusaupathPlayer *object, GVariantWrapper &&request_data);
     void expect_tdbus_aupath_source_call_selected_on_hold_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id);
+    void expect_tdbus_aupath_source_call_selected_on_hold_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id, GVariantWrapper &&request_data);
     void expect_tdbus_aupath_source_call_selected_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id);
+    void expect_tdbus_aupath_source_call_selected_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id, GVariantWrapper &&request_data);
     void expect_tdbus_aupath_source_call_deselected_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id);
+    void expect_tdbus_aupath_source_call_deselected_sync(gboolean retval, tdbusaupathSource *object, const gchar *arg_source_id, GVariantWrapper &&request_data);
 };
 
 extern MockAudiopathDBus *mock_audiopath_dbus_singleton;

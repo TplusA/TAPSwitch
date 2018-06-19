@@ -22,6 +22,7 @@
 
 #include <cppcutter.h>
 #include <string>
+#include <glib.h>
 
 #include "audiopath.hh"
 #include "audiopathswitch.hh"
@@ -205,6 +206,68 @@ void test_switch_complete_path()
 
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
                         static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+}
+
+/*!\test
+ * Switch audio source and player, pass extra data on each request.
+ */
+void test_switch_complete_path_with_request_data()
+{
+    cut_assert_true(pswitch->get_player_id().empty());
+
+    const std::string *player_id;
+
+    /* first activation */
+    GVariantDict dict;
+    g_variant_dict_init(&dict, nullptr);
+    g_variant_dict_insert_value(&dict, "foo", g_variant_new_string("bar"));
+    g_variant_dict_insert_value(&dict, "my", g_variant_new_string("data"));
+    auto request_data(GVariantWrapper(g_variant_dict_end(&dict)));
+
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'), GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1", GVariantWrapper(request_data));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true, std::move(request_data))));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+
+    /* switch to other source */
+    g_variant_dict_init(&dict, nullptr);
+    g_variant_dict_insert_value(&dict, "bar", g_variant_new_string("foo"));
+    g_variant_dict_insert_value(&dict, "dadada", g_variant_new_string("dadata"));
+    request_data = std::move(GVariantWrapper(g_variant_dict_end(&dict)));
+
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_deselected_sync(true, aupath_source_proxy('A'), "srcA1", GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_deactivate_sync(true, aupath_player_proxy('1'), GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('2'), GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('C'), "srcC2", GVariantWrapper(request_data));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true, std::move(request_data))));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl2", player_id->c_str());
+    cppcut_assert_equal("pl2", pswitch->get_player_id().c_str());
+
+    /* switch back to first source */
+    g_variant_dict_init(&dict, nullptr);
+    g_variant_dict_insert_value(&dict, "foo", g_variant_new_string("qux"));
+    request_data = std::move(GVariantWrapper(g_variant_dict_end(&dict)));
+
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_deselected_sync(true, aupath_source_proxy('C'), "srcC2", GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_deactivate_sync(true, aupath_player_proxy('2'), GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'), GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('A'), "srcA1", GVariantWrapper(request_data));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true, std::move(request_data))));
 
     cppcut_assert_not_null(player_id);
     cppcut_assert_equal("pl1", player_id->c_str());
@@ -702,6 +765,49 @@ void test_switch_path_while_appliance_is_not_ready()
     cut_assert_true(appliance.set_audio_path_ready());
 
     mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1");
+    std::string source_id;
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
+                        static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    cppcut_assert_equal("srcB1", source_id.c_str());
+}
+
+/*!\test
+ * Deferred audio source activation with request data.
+ */
+void test_switch_path_with_request_data_while_appliance_is_not_ready()
+{
+    AudioPath::Appliance appliance;
+    cut_assert_true(appliance.set_audio_path_blocked());
+
+    const std::string *player_id;
+
+    /* try to activate */
+    GVariantDict dict;
+    g_variant_dict_init(&dict, nullptr);
+    g_variant_dict_insert_value(&dict, "cat", g_variant_new_string("meow"));
+    g_variant_dict_insert_value(&dict, "dog", g_variant_new_string("woof"));
+    g_variant_dict_insert_value(&dict, "frog", g_variant_new_string("ribbit"));
+    auto request_data(GVariantWrapper(g_variant_dict_end(&dict)));
+
+    mock_audiopath_dbus->expect_tdbus_aupath_player_call_activate_sync(true, aupath_player_proxy('1'), GVariantWrapper(request_data));
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_on_hold_sync(true, aupath_source_proxy('B'), "srcB1", GVariantWrapper(request_data));
+
+    cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
+                        static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+                                                appliance.is_audio_path_ready() == true,
+                                                GVariantWrapper(request_data))));
+
+    cppcut_assert_not_null(player_id);
+    cppcut_assert_equal("pl1", player_id->c_str());
+    cppcut_assert_equal("pl1", pswitch->get_player_id().c_str());
+    mock_audiopath_dbus->check();
+    mock_messages->check();
+
+    /* appliance was blocked, now assume it has told us it is ready */
+    cut_assert_true(appliance.set_audio_path_ready());
+
+    mock_audiopath_dbus->expect_tdbus_aupath_source_call_selected_sync(true, aupath_source_proxy('B'), "srcB1", std::move(request_data));
     std::string source_id;
     cppcut_assert_equal(static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED),
                         static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)));
