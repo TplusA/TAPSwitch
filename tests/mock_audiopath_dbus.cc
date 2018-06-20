@@ -238,10 +238,13 @@ static char extract_id(tdbusaupathSource *proxy)
 }
 
 static void check_request_data(const GVariantWrapper &expected_data,
-                               GVariant *const arg_request_data)
+                               GVariant *const arg_request_data,
+                               bool auto_unref_data = true)
 {
     cppcut_assert_not_null(arg_request_data);
     cut_assert_true(g_variant_is_of_type(arg_request_data, G_VARIANT_TYPE_VARDICT));
+
+    g_variant_ref_sink(arg_request_data);
 
     if(expected_data != nullptr)
     {
@@ -251,6 +254,9 @@ static void check_request_data(const GVariantWrapper &expected_data,
     }
     else
         cppcut_assert_equal(gsize(0), g_variant_n_children(arg_request_data));
+
+    if(auto_unref_data)
+        g_variant_unref(arg_request_data);
 }
 
 gboolean tdbus_aupath_player_call_activate_sync(tdbusaupathPlayer *proxy, GVariant *arg_request_data, GCancellable *cancellable, GError **error)
