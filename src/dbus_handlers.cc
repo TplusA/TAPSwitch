@@ -450,7 +450,7 @@ gboolean dbusmethod_aupath_get_player_info(tdbusaupathManager *object,
     if(p == nullptr)
         g_dbus_method_invocation_return_error(invocation, G_DBUS_ERROR,
                                               G_DBUS_ERROR_FAILED,
-                                              "Audio player \"%s\" no registered",
+                                              "Audio player \"%s\" not registered",
                                               player_id);
     else
     {
@@ -477,7 +477,7 @@ gboolean dbusmethod_aupath_get_source_info(tdbusaupathManager *object,
     if(s == nullptr)
         g_dbus_method_invocation_return_error(invocation, G_DBUS_ERROR,
                                               G_DBUS_ERROR_FAILED,
-                                              "Audio source \"%s\" no registered",
+                                              "Audio source \"%s\" not registered",
                                               source_id);
     else
     {
