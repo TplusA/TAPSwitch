@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -85,6 +85,9 @@ namespace std
 
 namespace DBus
 {
+
+template <typename T>
+std::unique_ptr<T> mk_proxy(const char *dest, const char *obj_path);
 
 template <>
 std::unique_ptr<AudioPath::Player::PType>

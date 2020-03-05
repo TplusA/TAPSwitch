@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -20,6 +20,9 @@
 #define DBUS_PROXY_WRAPPER_HH
 
 #include <memory>
+
+struct _GObject;
+struct _GAsyncResult;
 
 namespace DBus
 {
@@ -50,7 +53,12 @@ class Proxy
 };
 
 template <typename T>
-std::unique_ptr<T> mk_proxy(const char *dest, const char *obj_path);
+void mk_proxy_async(const char *dest, const char *obj_path,
+                    std::function<void(std::unique_ptr<T>)> *proxy_done_cb);
+
+template <typename T>
+void mk_proxy_done(struct _GObject *source_object, struct _GAsyncResult *res,
+                   void *user_data);
 
 }
 
