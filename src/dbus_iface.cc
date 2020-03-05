@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -24,14 +24,15 @@
 
 #include "dbus_iface.h"
 #include "dbus_iface_deep.h"
-#include "dbus_common.h"
 #include "dbus_handlers.h"
-#include "audiopath_dbus.h"
+#include "de_tahifi_audiopath.h"
 #include "messages.h"
 #include "messages_dbus.h"
+#include "gerrorwrapper.hh"
 
-struct dbus_data
+class DBusData
 {
+  public:
     guint owner_id;
     int name_acquired;
 
@@ -47,85 +48,83 @@ struct dbus_data
 static void try_export_iface(GDBusConnection *connection,
                              GDBusInterfaceSkeleton *iface)
 {
-    GError *error = NULL;
-
-    g_dbus_interface_skeleton_export(iface, connection, "/de/tahifi/TAPSwitch", &error);
-
-    dbus_handle_error(&error, "Export interface");
+    GErrorWrapper error;
+    g_dbus_interface_skeleton_export(iface, connection,
+                                     "/de/tahifi/TAPSwitch", error.await());
+    error.log_failure("Export interface");
 }
 
 static void bus_acquired(GDBusConnection *connection,
                          const gchar *name, gpointer user_data)
 {
-    struct dbus_data *data = user_data;
+    auto &data = *static_cast<DBusData *>(user_data);
 
     msg_info("D-Bus \"%s\" acquired", name);
 
-    data->audiopath_manager_iface = tdbus_aupath_manager_skeleton_new();
-    data->audiopath_appliance_iface = tdbus_aupath_appliance_skeleton_new();
-    data->debug_logging_iface = tdbus_debug_logging_skeleton_new();
+    data.audiopath_manager_iface = tdbus_aupath_manager_skeleton_new();
+    data.audiopath_appliance_iface = tdbus_aupath_appliance_skeleton_new();
+    data.debug_logging_iface = tdbus_debug_logging_skeleton_new();
 
-    g_signal_connect(data->audiopath_manager_iface, "handle-register-player",
+    g_signal_connect(data.audiopath_manager_iface, "handle-register-player",
                      G_CALLBACK(dbusmethod_aupath_register_player),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-register-source",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-register-source",
                      G_CALLBACK(dbusmethod_aupath_register_source),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-request-source",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-request-source",
                      G_CALLBACK(dbusmethod_aupath_request_source),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-release-path",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-release-path",
                      G_CALLBACK(dbusmethod_aupath_release_path),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-get-active-player",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-get-active-player",
                      G_CALLBACK(dbusmethod_aupath_get_active_player),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-get-paths",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-get-paths",
                      G_CALLBACK(dbusmethod_aupath_get_paths),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-get-player-info",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-get-player-info",
                      G_CALLBACK(dbusmethod_aupath_get_player_info),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_manager_iface, "handle-get-source-info",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-get-source-info",
                      G_CALLBACK(dbusmethod_aupath_get_source_info),
-                     data->handler_data);
+                     data.handler_data);
 
-    g_signal_connect(data->audiopath_appliance_iface, "handle-set-ready-state",
+    g_signal_connect(data.audiopath_appliance_iface, "handle-set-ready-state",
                      G_CALLBACK(dbusmethod_appliance_set_ready_state),
-                     data->handler_data);
-    g_signal_connect(data->audiopath_appliance_iface, "handle-get-state",
+                     data.handler_data);
+    g_signal_connect(data.audiopath_appliance_iface, "handle-get-state",
                      G_CALLBACK(dbusmethod_appliance_get_state),
-                     data->handler_data);
+                     data.handler_data);
 
-    g_signal_connect(data->debug_logging_iface,
+    g_signal_connect(data.debug_logging_iface,
                      "handle-debug-level",
-                     G_CALLBACK(msg_dbus_handle_debug_level), NULL);
+                     G_CALLBACK(msg_dbus_handle_debug_level), nullptr);
 
-    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data->audiopath_manager_iface));
-    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data->audiopath_appliance_iface));
-    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data->debug_logging_iface));
+    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data.audiopath_manager_iface));
+    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data.audiopath_appliance_iface));
+    try_export_iface(connection, G_DBUS_INTERFACE_SKELETON(data.debug_logging_iface));
 }
 
 static void connect_signals_debug(GDBusConnection *connection,
-                                  struct dbus_data *data, GDBusProxyFlags flags,
+                                  DBusData &data, GDBusProxyFlags flags,
                                   const char *bus_name, const char *object_path)
 {
-    GError *error = NULL;
-
-    data->debug_logging_config_proxy =
+    GErrorWrapper error;
+    data.debug_logging_config_proxy =
         tdbus_debug_logging_config_proxy_new_sync(connection, flags,
                                                   bus_name, object_path,
-                                                  NULL, &error);
-    dbus_handle_error(&error, "Create Debug proxy");
+                                                  nullptr, error.await());
+    error.log_failure("Create Debug proxy");
 }
 
 static void name_acquired(GDBusConnection *connection,
                           const gchar *name, gpointer user_data)
 {
-    struct dbus_data *data = user_data;
+    auto &data = *static_cast<DBusData *>(user_data);
 
     msg_info("D-Bus name \"%s\" acquired", name);
-    data->name_acquired = 1;
+    data.name_acquired = 1;
 
     connect_signals_debug(connection, data, G_DBUS_PROXY_FLAGS_NONE,
                           "de.tahifi.TAPSwitch", "/de/tahifi/TAPSwitch");
@@ -134,10 +133,10 @@ static void name_acquired(GDBusConnection *connection,
 static void name_lost(GDBusConnection *connection,
                       const gchar *name, gpointer user_data)
 {
-    struct dbus_data *data = user_data;
+    auto &data = *static_cast<DBusData *>(user_data);
 
     msg_vinfo(MESSAGE_LEVEL_IMPORTANT, "D-Bus name \"%s\" lost", name);
-    data->name_acquired = -1;
+    data.name_acquired = -1;
 }
 
 static void destroy_notification(gpointer data)
@@ -145,7 +144,7 @@ static void destroy_notification(gpointer data)
     msg_vinfo(MESSAGE_LEVEL_IMPORTANT, "Bus destroyed.");
 }
 
-static struct dbus_data dbus_data;
+static DBusData dbus_data;
 
 int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
                void *dbus_data_for_dbus_handlers)
@@ -171,7 +170,7 @@ int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
     {
         /* do whatever has to be done behind the scenes until one of the
          * guaranteed callbacks gets called */
-        g_main_context_iteration(NULL, TRUE);
+        g_main_context_iteration(nullptr, TRUE);
     }
 
     if(dbus_data.name_acquired < 0)
@@ -180,14 +179,14 @@ int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
         return -1;
     }
 
-    log_assert(dbus_data.audiopath_manager_iface != NULL);
-    log_assert(dbus_data.audiopath_appliance_iface != NULL);
-    log_assert(dbus_data.debug_logging_iface != NULL);
-    log_assert(dbus_data.debug_logging_config_proxy != NULL);
+    log_assert(dbus_data.audiopath_manager_iface != nullptr);
+    log_assert(dbus_data.audiopath_appliance_iface != nullptr);
+    log_assert(dbus_data.debug_logging_iface != nullptr);
+    log_assert(dbus_data.debug_logging_config_proxy != nullptr);
 
     g_signal_connect(dbus_data.debug_logging_config_proxy, "g-signal",
                      G_CALLBACK(msg_dbus_handle_global_debug_level_changed),
-                     NULL);
+                     nullptr);
 
     g_main_loop_ref(loop);
 
@@ -196,7 +195,7 @@ int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
 
 void dbus_shutdown(GMainLoop *loop)
 {
-    if(loop == NULL)
+    if(loop == nullptr)
         return;
 
     g_bus_unown_name(dbus_data.owner_id);

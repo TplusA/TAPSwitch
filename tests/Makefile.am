@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2017, 2020  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of TAPSwitch.
 #
@@ -16,63 +16,63 @@
 # along with TAPSwitch.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-if WITH_CUTTER
-TESTS = run_test.sh
+if WITH_DOCTEST
+check_PROGRAMS = test_audiopath test_audiopathswitch
+
+TESTS = run_tests.sh
 
 if WITH_VALGRIND
+AM_TESTS_ENVIRONMENT = VALGRIND="$(VALGRIND)"
+AM_TESTS_ENVIRONMENT += VALGRIND_OPTIONS="--suppressions=$(srcdir)/valgrind.suppressions"
 TESTS += valgrind.sh
 endif
 
-AM_TESTS_ENVIRONMENT = CUTTER="$(CUTTER)" XSLTPROC="$(XSLTPROC)" VALGRIND="$(VALGRIND)"
+EXTRA_DIST = run_tests.sh valgrind.sh
+CLEANFILES = *.junit.xml *.valgrind.xml
 
-AM_LDFLAGS = -module -rpath $(libdir) -avoid-version -no-undefined
-
-AM_CPPFLAGS = $(CPPCUTTER_CFLAGS)
+AM_CPPFLAGS = -DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
 AM_CPPFLAGS += -I$(top_srcdir)/src -I$(top_builddir)/src
 AM_CPPFLAGS += -I$(top_srcdir)/dbus_interfaces
-
 AM_CFLAGS = $(CWARNINGS)
-
 AM_CXXFLAGS = $(CXXWARNINGS)
 
-LIBS += $(CPPCUTTER_LIBS)
+noinst_LTLIBRARIES = libtestrunner.la
 
-check_LTLIBRARIES = \
-    test_audiopath.la \
-    test_audiopathswitch.la \
-    test_dbus_handlers.la
+libtestrunner_la_SOURCES = testrunner.cc
 
-test_audiopath_la_SOURCES = test_audiopath.cc
-test_audiopath_la_LIBADD = $(top_builddir)/src/libaudiopath.la
-test_audiopath_la_CFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CFLAGS)
-test_audiopath_la_CXXFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CXXFLAGS)
+test_audiopath_SOURCES = \
+    test_audiopath.cc
+test_audiopath_LDADD = \
+    libtestrunner.la \
+    $(top_builddir)/src/libaudiopath.la
+test_audiopath_CPPFLAGS = $(AM_CPPFLAGS)
+test_audiopath_CXXFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CXXFLAGS)
 
-test_audiopathswitch_la_SOURCES = \
-    test_audiopathswitch.cc mock_expectation.hh \
+test_audiopathswitch_SOURCES = \
+    test_audiopathswitch.cc \
     mock_audiopath_dbus.hh mock_audiopath_dbus.cc \
-    mock_messages.hh mock_messages.cc
-test_audiopathswitch_la_LIBADD = \
+    mock_messages.hh mock_messages.cc \
+    mock_backtrace.hh mock_backtrace.cc \
+    mock_os.hh mock_os.cc \
+    mock_expectation.hh
+test_audiopathswitch_LDADD = \
+    libtestrunner.la \
     $(top_builddir)/src/libaudiopath.la \
-    $(top_builddir)/src/libdbus_common.la
-test_audiopathswitch_la_CFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CFLAGS)
-test_audiopathswitch_la_CXXFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CXXFLAGS)
+    $(TAPSWITCH_DEPENDENCIES_LIBS)
+test_audiopathswitch_CPPFLAGS = $(AM_CPPFLAGS)
+test_audiopathswitch_CXXFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CXXFLAGS)
 
-test_dbus_handlers_la_SOURCES = \
-    test_dbus_handlers.cc mock_expectation.hh \
-    mock_messages.hh mock_messages.cc
-test_dbus_handlers_la_LIBADD = \
-    $(top_builddir)/src/libdbus_handlers.la
-test_dbus_handlers_la_CFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CFLAGS)
-test_dbus_handlers_la_CXXFLAGS = $(TAPSWITCH_DEPENDENCIES_CFLAGS) $(AM_CXXFLAGS)
+doctest: $(check_PROGRAMS)
+	for p in $(check_PROGRAMS); do \
+	    if ./$$p $(DOCTEST_EXTRA_OPTIONS); then :; \
+	    else \
+	        echo "*****"; \
+	        echo "***** Running $$p again in gdb due to failures"; \
+	        echo "*****"; \
+	        gdb -ex run --args ./$$p $(DOCTEST_EXTRA_OPTIONS); \
+	    fi; \
+	done
 
-CLEANFILES = test_report.xml test_report_junit.xml valgrind.xml
-
-EXTRA_DIST = cutter2junit.xslt
-EXTRA_DIST += cutter-1_2_4.supp
-
-check-local: check-TESTS
-	@if $(GREP) -w cutter $(TEST_LOGS); then \
-	    echo "Unit tests failed (check log)"; \
-	    exit 1; \
-	fi
+doctest-valgrind: $(check_PROGRAMS)
+	for p in $(check_PROGRAMS); do $(VALGRIND) --leak-check=full --show-reachable=yes --error-limit=no ./$$p $(DOCTEST_EXTRA_OPTIONS); done
 endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -91,7 +91,7 @@ class Switch
 
         bool have_pending_activation() const { return !source_id_.empty(); }
         const std::string &get_audio_source_id() const { return source_id_; }
-        const ActivateResult get_phase_one_result() const { return phase_one_result_; }
+        ActivateResult get_phase_one_result() const { return phase_one_result_; }
 
         void take_audio_source_id(std::string &dest) { return dest.swap(source_id_); }
     };

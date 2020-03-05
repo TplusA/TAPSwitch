@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of TAPSwitch.
 #
@@ -24,9 +24,9 @@ tapswitch_SOURCES = \
     tapswitch.cc audiopath.hh dbus_proxy_wrapper.hh appliance.hh maybe.hh \
     messages.h messages.c messages_glib.h messages_glib.c \
     messages_dbus.c messages_dbus.h \
-    dbus_iface.c dbus_iface.h dbus_iface_deep.h dbus_common.h \
+    dbus_iface.cc dbus_iface.h dbus_iface_deep.h gerrorwrapper.hh \
     dbus_handlers.h dbus_handlers.hh \
-    os.c os.h
+    backtrace.c backtrace.h os.c os.h
 
 DBUS_IFACES = $(top_srcdir)/dbus_interfaces
 
@@ -40,7 +40,6 @@ AM_CXXFLAGS = $(CXXWARNINGS)
 
 noinst_LTLIBRARIES = \
     libdbus_handlers.la \
-    libdbus_common.la \
     libaudiopath_dbus.la \
     libaudiopath.la \
     libdebug_dbus.la
@@ -62,42 +61,38 @@ libdbus_handlers_la_SOURCES = \
 libdbus_handlers_la_CFLAGS = $(AM_CFLAGS)
 libdbus_handlers_la_CXXFLAGS = $(AM_CXXFLAGS)
 
-libdbus_common_la_SOURCES = dbus_common.c dbus_common.h
-libdbus_common_la_CFLAGS = $(AM_CFLAGS)
-libdbus_common_la_CXXFLAGS = $(AM_CXXFLAGS)
-
-nodist_libdebug_dbus_la_SOURCES = debug_dbus.c debug_dbus.h
-libdebug_dbus_la_CFLAGS = $(CRELAXEDWARNINGS)
-
-nodist_libaudiopath_dbus_la_SOURCES = audiopath_dbus.c audiopath_dbus.h
+nodist_libaudiopath_dbus_la_SOURCES = de_tahifi_audiopath.c de_tahifi_audiopath.h
 libaudiopath_dbus_la_CFLAGS = $(CRELAXEDWARNINGS)
+
+nodist_libdebug_dbus_la_SOURCES = de_tahifi_debug.c de_tahifi_debug.h
+libdebug_dbus_la_CFLAGS = $(CRELAXEDWARNINGS)
 
 BUILT_SOURCES = \
     $(nodist_libaudiopath_dbus_la_SOURCES) \
-    de_tahifi_audiopath.h \
-    de_tahifi_audiopath.md \
-    audiopath_dbus.stamp \
+    de_tahifi_audiopath-doc.h \
+    de_tahifi_audiopath-doc.md \
+    de_tahifi_audiopath.stamp \
     $(nodist_libdebug_dbus_la_SOURCES) \
-    de_tahifi_debug.h \
-    de_tahifi_debug.md \
-    debug_dbus.stamp
+    de_tahifi_debug-doc.h \
+    de_tahifi_debug-doc.md \
+    de_tahifi_debug.stamp
 
 CLEANFILES = $(BUILT_SOURCES)
 
-de_tahifi_audiopath.h: audiopath_dbus.stamp
-de_tahifi_audiopath.md: audiopath_dbus.stamp
-audiopath_dbus.c: audiopath_dbus.stamp
-audiopath_dbus.h: audiopath_dbus.stamp
-audiopath_dbus.stamp: $(DBUS_IFACES)/de_tahifi_audiopath.xml
-	$(GDBUS_CODEGEN) --generate-c-code=audiopath_dbus --c-namespace tdbus_aupath --interface-prefix de.tahifi.AudioPath. $<
-	$(DBUS_IFACES)/extract_documentation.py -i $< -o de_tahifi_audiopath.md -H de_tahifi_audiopath.h -c tdbus_aupath -s de.tahifi.AudioPath. -n 'Audio Paths'
+de_tahifi_audiopath-doc.h: de_tahifi_audiopath.stamp
+de_tahifi_audiopath-doc.md: de_tahifi_audiopath.stamp
+de_tahifi_audiopath.c: de_tahifi_audiopath.stamp
+de_tahifi_audiopath.h: de_tahifi_audiopath.stamp
+de_tahifi_audiopath.stamp: $(DBUS_IFACES)/de_tahifi_audiopath.xml
+	$(GDBUS_CODEGEN) --generate-c-code=de_tahifi_audiopath --c-namespace tdbus_aupath --interface-prefix de.tahifi.AudioPath. $<
+	$(DBUS_IFACES)/extract_documentation.py -i $< -o de_tahifi_audiopath-doc.md -H de_tahifi_audiopath-doc.h -c tdbus_aupath -s de.tahifi.AudioPath. -n 'Audio Paths'
 	touch $@
 
-de_tahifi_debug.h: debug_dbus.stamp
-de_tahifi_debug.md: debug_dbus.stamp
-debug_dbus.c: debug_dbus.stamp
-debug_dbus.h: debug_dbus.stamp
-debug_dbus.stamp: $(DBUS_IFACES)/de_tahifi_debug.xml
-	$(GDBUS_CODEGEN) --generate-c-code=debug_dbus --c-namespace tdbus_debug --interface-prefix de.tahifi.Debug. $<
-	$(DBUS_IFACES)/extract_documentation.py -i $< -o de_tahifi_debug.md -H de_tahifi_debug.h -c tdbus_debug -s de.tahifi.Debug. -n "Introspection"
+de_tahifi_debug-doc.h: de_tahifi_debug.stamp
+de_tahifi_debug-doc.md: de_tahifi_debug.stamp
+de_tahifi_debug.c: de_tahifi_debug.stamp
+de_tahifi_debug.h: de_tahifi_debug.stamp
+de_tahifi_debug.stamp: $(DBUS_IFACES)/de_tahifi_debug.xml
+	$(GDBUS_CODEGEN) --generate-c-code=de_tahifi_debug --c-namespace tdbus_debug --interface-prefix de.tahifi.Debug. $<
+	$(DBUS_IFACES)/extract_documentation.py -i $< -o de_tahifi_debug-doc.md -H de_tahifi_debug-doc.h -c tdbus_debug -s de.tahifi.Debug. -n "Introspection"
 	touch $@

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -27,6 +27,7 @@
 #include "dbus_handlers.hh"
 #include "dbus_handlers.h"
 #include "dbus_iface_deep.h"
+#include "gerrorwrapper.hh"
 #include "messages.h"
 
 namespace DBus
@@ -39,14 +40,14 @@ mk_proxy(const char *dest, const char *obj_path)
     GDBusConnection *connection =
         g_dbus_interface_skeleton_get_connection(G_DBUS_INTERFACE_SKELETON(dbus_get_audiopath_manager_iface()));
 
-    GError *error = nullptr;
+    GErrorWrapper error;
 
     tdbusaupathPlayer *proxy =
         tdbus_aupath_player_proxy_new_sync(connection, G_DBUS_PROXY_FLAGS_NONE,
-                                           dest, obj_path, nullptr, &error);
-    dbus_handle_error(&error, "Create AudioPath.Player proxy");
+                                           dest, obj_path, nullptr, error.await());
+    error.log_failure("Create AudioPath.Player proxy");
 
-    return std::unique_ptr<AudioPath::Player::PType>(new AudioPath::Player::PType(proxy));
+    return std::make_unique<AudioPath::Player::PType>(proxy);
 }
 
 template<>
@@ -66,14 +67,14 @@ mk_proxy(const char *dest, const char *obj_path)
     GDBusConnection *connection =
         g_dbus_interface_skeleton_get_connection(G_DBUS_INTERFACE_SKELETON(dbus_get_audiopath_manager_iface()));
 
-    GError *error = nullptr;
+    GErrorWrapper error;
 
     tdbusaupathSource *proxy =
         tdbus_aupath_source_proxy_new_sync(connection, G_DBUS_PROXY_FLAGS_NONE,
-                                           dest, obj_path, nullptr, &error);
-    dbus_handle_error(&error, "Create AudioPath.Source proxy");
+                                           dest, obj_path, nullptr, error.await());
+    error.log_failure("Create AudioPath.Source proxy");
 
-    return std::unique_ptr<AudioPath::Source::PType>(new AudioPath::Source::PType(proxy));
+    return std::make_unique<AudioPath::Source::PType>(proxy);
 }
 
 template<>

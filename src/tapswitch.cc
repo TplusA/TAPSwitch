@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -152,10 +152,9 @@ static int setup(const struct parameters *parameters,
     msg_set_verbose_level(parameters->verbose_level);
 
     if(!parameters->run_in_foreground)
+    {
         openlog("tapswitch", LOG_PID, LOG_DAEMON);
 
-    if(!parameters->run_in_foreground)
-    {
         if(daemon(0, 0) < 0)
         {
             msg_error(errno, LOG_EMERG, "Failed to run as daemon");

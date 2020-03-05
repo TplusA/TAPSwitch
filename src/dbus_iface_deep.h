@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -19,7 +19,7 @@
 #ifndef DBUS_IFACE_DEEP_H
 #define DBUS_IFACE_DEEP_H
 
-#include "audiopath_dbus.h"
+#include "de_tahifi_audiopath.h"
 
 /*!
  * \addtogroup dbus DBus handling
@@ -29,8 +29,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-bool dbus_handle_error(GError **error, const char *what);
 
 tdbusaupathManager *dbus_get_audiopath_manager_iface(void);
 

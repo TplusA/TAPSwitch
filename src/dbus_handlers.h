@@ -21,7 +21,7 @@
 
 #include <gio/gio.h>
 
-#include "audiopath_dbus.h"
+#include "de_tahifi_audiopath.h"
 
 /*!
  * \addtogroup dbus_handlers DBus handlers for signals

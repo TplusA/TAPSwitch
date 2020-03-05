@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -24,7 +24,8 @@
 
 #include "audiopathswitch.hh"
 #include "audiopath.hh"
-#include "dbus_iface_deep.h"
+#include "gerrorwrapper.hh"
+#include "de_tahifi_audiopath.h"
 #include "messages.h"
 
 static const char debug_prefix[] = "AUDIO SOURCE SWITCH: ";
@@ -42,12 +43,12 @@ static void deactivate_player(const AudioPath::Paths &paths,
               "%sDeactivate player %s (%s)", debug_prefix,
               old_player->id_.c_str(), old_player->name_.c_str());
 
-    GError *error = nullptr;
+    GErrorWrapper error;
     tdbus_aupath_player_call_deactivate_sync(old_player->get_dbus_proxy().get_as_nonconst(),
                                              GVariantWrapper::get(request_data),
-                                             nullptr, &error);
+                                             nullptr, error.await());
 
-    if(!dbus_handle_error(&error, "Deactivate player"))
+    if(error.log_failure("Deactivate player"))
         msg_error(0, LOG_ERR, "%sDeactivating player %s failed",
                   debug_prefix,  old_player->id_.c_str());
 
@@ -60,11 +61,11 @@ static bool activate_player(const AudioPath::Player &player,
     msg_vinfo(MESSAGE_LEVEL_DEBUG, "%sActivate player %s (%s)",
               debug_prefix, player.id_.c_str(), player.name_.c_str());
 
-    GError *error = nullptr;
+    GErrorWrapper error;
     tdbus_aupath_player_call_activate_sync(player.get_dbus_proxy().get_as_nonconst(),
                                            GVariantWrapper::get(request_data),
-                                           nullptr, &error);
-    if(!dbus_handle_error(&error, "Activate player"))
+                                           nullptr, error.await());
+    if(error.log_failure("Activate player"))
     {
         msg_error(0, LOG_ERR, "%sActivating player %s failed",
                   debug_prefix, player.id_.c_str());
@@ -89,13 +90,13 @@ static void deselect_source(const AudioPath::Paths &paths,
               "%sDeselect audio source %s (%s)", debug_prefix,
               old_source->id_.c_str(), old_source->name_.c_str());
 
-    GError *error = nullptr;
+    GErrorWrapper error;
     tdbus_aupath_source_call_deselected_sync(old_source->get_dbus_proxy().get_as_nonconst(),
                                              deselected_id.c_str(),
                                              GVariantWrapper::get(request_data),
-                                             nullptr, &error);
+                                             nullptr, error.await());
 
-    if(!dbus_handle_error(&error, "Deselect source"))
+    if(error.log_failure("Deselect source"))
         msg_error(0, LOG_ERR, "%sDeselecting audio source %s failed",
                   debug_prefix, old_source->id_.c_str());
 
@@ -110,20 +111,20 @@ static bool select_source(const AudioPath::Source &source, bool is_final_select,
               debug_prefix, source.id_.c_str(), source.name_.c_str(),
               is_final_select ? "" : " (deferred)");
 
-    GError *error = nullptr;
+    GErrorWrapper error;
 
     if(is_final_select)
         tdbus_aupath_source_call_selected_sync(source.get_dbus_proxy().get_as_nonconst(),
                                                source.id_.c_str(),
                                                GVariantWrapper::get(request_data),
-                                               nullptr, &error);
+                                               nullptr, error.await());
     else
         tdbus_aupath_source_call_selected_on_hold_sync(source.get_dbus_proxy().get_as_nonconst(),
                                                        source.id_.c_str(),
                                                        GVariantWrapper::get(request_data),
-                                                       nullptr, &error);
+                                                       nullptr, error.await());
 
-    if(!dbus_handle_error(&error, "Select source"))
+    if(error.log_failure("Select source"))
     {
         msg_error(0, LOG_ERR, "%sSelecting audio source %s%s failed",
                   debug_prefix, source.id_.c_str(),
