@@ -52,6 +52,9 @@ static tdbusaupathSource *aupath_source_proxy(const char id)
 namespace DBus
 {
 
+template <typename T>
+std::unique_ptr<T> mk_proxy(const char *dest, const char *obj_path);
+
 template <>
 std::unique_ptr<AudioPath::Player::PType>
 mk_proxy(const char *dest, const char *obj_path)

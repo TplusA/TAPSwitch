@@ -33,24 +33,45 @@
 namespace DBus
 {
 
+using RegisterPlayerCallback =
+    std::function<void(std::unique_ptr<AudioPath::Player::PType>)>;
+
 template <>
-std::unique_ptr<AudioPath::Player::PType>
-mk_proxy(const char *dest, const char *obj_path)
+void mk_proxy_done<RegisterPlayerCallback>(GObject *source_object, GAsyncResult *res,
+                                           gpointer user_data)
+{
+    auto proxy_done_cb(reinterpret_cast<RegisterPlayerCallback *>(user_data));
+    GErrorWrapper error;
+    auto *proxy = tdbus_aupath_player_proxy_new_finish(res, error.await());
+
+    try
+    {
+        if(error.log_failure("Create AudioPath.Player proxy"))
+            (*proxy_done_cb)(nullptr);
+        else
+            (*proxy_done_cb)(std::make_unique<AudioPath::Player::PType>(proxy));
+    }
+    catch(...)
+    {
+        BUG("Exception from AudioPath.Player proxy-done callback (ignored)");
+    }
+
+    delete proxy_done_cb;
+}
+
+template <>
+void mk_proxy_async(const char *dest, const char *obj_path,
+                    RegisterPlayerCallback *proxy_done_cb)
 {
     GDBusConnection *connection =
         g_dbus_interface_skeleton_get_connection(G_DBUS_INTERFACE_SKELETON(dbus_get_audiopath_manager_iface()));
-
-    GErrorWrapper error;
-
-    tdbusaupathPlayer *proxy =
-        tdbus_aupath_player_proxy_new_sync(connection, G_DBUS_PROXY_FLAGS_NONE,
-                                           dest, obj_path, nullptr, error.await());
-    error.log_failure("Create AudioPath.Player proxy");
-
-    return std::make_unique<AudioPath::Player::PType>(proxy);
+    tdbus_aupath_player_proxy_new(
+        connection, G_DBUS_PROXY_FLAGS_NONE, dest, obj_path, nullptr,
+        mk_proxy_done<RegisterPlayerCallback>,
+        reinterpret_cast<void *>(proxy_done_cb));
 }
 
-template<>
+template <>
 Proxy<tdbusaupathPlayer>::~Proxy()
 {
     if(proxy_ == nullptr)
@@ -60,24 +81,45 @@ Proxy<tdbusaupathPlayer>::~Proxy()
     proxy_ = nullptr;
 }
 
+using RegisterSourceCallback =
+    std::function<void(std::unique_ptr<AudioPath::Source::PType>)>;
+
 template <>
-std::unique_ptr<AudioPath::Source::PType>
-mk_proxy(const char *dest, const char *obj_path)
+void mk_proxy_done<RegisterSourceCallback>(GObject *source_object, GAsyncResult *res,
+                                           gpointer user_data)
+{
+    auto proxy_done_cb(reinterpret_cast<RegisterSourceCallback *>(user_data));
+    GErrorWrapper error;
+    auto *proxy = tdbus_aupath_source_proxy_new_finish(res, error.await());
+
+    try
+    {
+        if(error.log_failure("Create AudioPath.Source proxy"))
+            (*proxy_done_cb)(nullptr);
+        else
+            (*proxy_done_cb)(std::make_unique<AudioPath::Source::PType>(proxy));
+    }
+    catch(...)
+    {
+        BUG("Exception from AudioPath.Source proxy-done callback (ignored)");
+    }
+
+    delete proxy_done_cb;
+}
+
+template <>
+void mk_proxy_async(const char *dest, const char *obj_path,
+                    RegisterSourceCallback *proxy_done_cb)
 {
     GDBusConnection *connection =
         g_dbus_interface_skeleton_get_connection(G_DBUS_INTERFACE_SKELETON(dbus_get_audiopath_manager_iface()));
-
-    GErrorWrapper error;
-
-    tdbusaupathSource *proxy =
-        tdbus_aupath_source_proxy_new_sync(connection, G_DBUS_PROXY_FLAGS_NONE,
-                                           dest, obj_path, nullptr, error.await());
-    error.log_failure("Create AudioPath.Source proxy");
-
-    return std::make_unique<AudioPath::Source::PType>(proxy);
+    tdbus_aupath_source_proxy_new(
+        connection, G_DBUS_PROXY_FLAGS_NONE, dest, obj_path, nullptr,
+        mk_proxy_done<RegisterSourceCallback>,
+        reinterpret_cast<void *>(proxy_done_cb));
 }
 
-template<>
+template <>
 Proxy<tdbusaupathSource>::~Proxy()
 {
     if(proxy_ == nullptr)
@@ -98,6 +140,43 @@ static void enter_audiopath_manager_handler(GDBusMethodInvocation *invocation)
               g_dbus_method_invocation_get_method_name(invocation));
 }
 
+static void register_player_bottom_half(
+        tdbusaupathManager *object, GDBusMethodInvocation *invocation,
+        std::unique_ptr<AudioPath::Player::PType> proxy,
+        std::string &&player_id, std::string &&player_name,
+        DBus::HandlerData &handler_data)
+{
+    const auto add_result(
+        handler_data.audio_paths_.add_player(
+            AudioPath::Player(player_id.c_str(), player_name.c_str(),
+                              std::move(proxy))));
+
+    tdbus_aupath_manager_complete_register_player(object, invocation);
+
+    tdbus_aupath_manager_emit_player_registered(object, player_id.c_str(),
+                                                player_name.c_str());
+
+    switch(add_result)
+    {
+      case AudioPath::Paths::AddResult::NEW_COMPONENT:
+      case AudioPath::Paths::AddResult::UPDATED_COMPONENT:
+        break;
+
+      case AudioPath::Paths::AddResult::NEW_PATH:
+      case AudioPath::Paths::AddResult::UPDATED_PATH:
+        handler_data.audio_paths_.for_each(
+            [object, player_id]
+            (const AudioPath::Paths::Path &p)
+            {
+                if(p.second->id_ == player_id)
+                    tdbus_aupath_manager_emit_path_available(
+                        object, p.first->id_.c_str(), player_id.c_str());
+            });
+
+        break;
+    }
+}
+
 gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
                                            GDBusMethodInvocation *invocation,
                                            const gchar *player_id,
@@ -109,13 +188,11 @@ gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
 
     if(player_id[0] == '\0' || player_name[0] == '\0' || path[0] == '\0')
     {
-        g_dbus_method_invocation_return_error_literal(invocation,
-                                                      G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
-                                                      "Empty argument");
+        g_dbus_method_invocation_return_error_literal(
+            invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
+            "Empty argument");
         return TRUE;
     }
-
-    auto *data = static_cast<DBus::HandlerData *>(user_data);
 
     const char *dest =
         g_dbus_message_get_sender(g_dbus_method_invocation_get_message(invocation));
@@ -124,14 +201,35 @@ gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
               "Register player %s (\"%s\") running on %s, object %s",
               player_id, player_name, dest, path);
 
+    auto *done_fn =
+        new DBus::RegisterPlayerCallback(
+            [object, invocation,
+             pid = std::move(std::string(player_id)),
+             pname = std::move(std::string(player_name)),
+             hd = static_cast<DBus::HandlerData *>(user_data)]
+            (std::unique_ptr<AudioPath::Player::PType> proxy) mutable
+            {
+                register_player_bottom_half(object, invocation, std::move(proxy),
+                                            std::move(pid), std::move(pname), *hd);
+            });
+
+    DBus::mk_proxy_async<AudioPath::Player::PType>(dest, path, done_fn);
+
+    return TRUE;
+}
+
+static void register_source_bottom_half(
+        tdbusaupathManager *object, GDBusMethodInvocation *invocation,
+        std::unique_ptr<AudioPath::Source::PType> proxy,
+        std::string &&source_id, std::string &&source_name,
+        std::string &&player_id, DBus::HandlerData &handler_data)
+{
     const auto add_result(
-        data->audio_paths_.add_player(std::move(
-            AudioPath::Player(player_id, player_name,
-                              DBus::mk_proxy<AudioPath::Player::PType>(dest, path)))));
+        handler_data.audio_paths_.add_source(
+            AudioPath::Source(source_id.c_str(), source_name.c_str(),
+                              player_id.c_str(), std::move(proxy))));
 
-    tdbus_aupath_manager_complete_register_player(object, invocation);
-
-    tdbus_aupath_manager_emit_player_registered(object, player_id, player_name);
+    tdbus_aupath_manager_complete_register_source(object, invocation);
 
     switch(add_result)
     {
@@ -141,18 +239,10 @@ gboolean dbusmethod_aupath_register_player(tdbusaupathManager *object,
 
       case AudioPath::Paths::AddResult::NEW_PATH:
       case AudioPath::Paths::AddResult::UPDATED_PATH:
-        data->audio_paths_.for_each(
-            [object, player_id]
-            (const AudioPath::Paths::Path &p)
-            {
-                if(p.second->id_ == player_id)
-                    tdbus_aupath_manager_emit_path_available(object, p.first->id_.c_str(), player_id);
-            });
-
+        tdbus_aupath_manager_emit_path_available(object, source_id.c_str(),
+                                                 player_id.c_str());
         break;
     }
-
-    return TRUE;
 }
 
 gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
@@ -168,13 +258,11 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
     if(source_id[0] == '\0' || source_name[0] == '\0' || player_id[0] == '\0' ||
        path[0] == '\0')
     {
-        g_dbus_method_invocation_return_error_literal(invocation,
-                                                      G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
-                                                      "Empty argument");
+        g_dbus_method_invocation_return_error_literal(
+            invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
+            "Empty argument");
         return TRUE;
     }
-
-    auto *data = static_cast<DBus::HandlerData *>(user_data);
 
     const char *dest =
         g_dbus_message_get_sender(g_dbus_method_invocation_get_message(invocation));
@@ -183,24 +271,21 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
               "Register source %s (\"%s\") for player %s running on %s, object %s",
               source_id, source_name, player_id, dest, path);
 
-    const auto add_result(
-        data->audio_paths_.add_source(std::move(
-            AudioPath::Source(source_id, source_name, player_id,
-                              DBus::mk_proxy<AudioPath::Source::PType>(dest, path)))));
+    auto *done_fn =
+        new DBus::RegisterSourceCallback(
+            [object, invocation,
+             srcid = std::move(std::string(source_id)),
+             srcname = std::move(std::string(source_name)),
+             pid = std::move(std::string(player_id)),
+             hd = static_cast<DBus::HandlerData *>(user_data)]
+            (std::unique_ptr<AudioPath::Source::PType> proxy) mutable
+            {
+                register_source_bottom_half(object, invocation, std::move(proxy),
+                                            std::move(srcid), std::move(srcname),
+                                            std::move(pid), *hd);
+            });
 
-    tdbus_aupath_manager_complete_register_source(object, invocation);
-
-    switch(add_result)
-    {
-      case AudioPath::Paths::AddResult::NEW_COMPONENT:
-      case AudioPath::Paths::AddResult::UPDATED_COMPONENT:
-        break;
-
-      case AudioPath::Paths::AddResult::NEW_PATH:
-      case AudioPath::Paths::AddResult::UPDATED_PATH:
-        tdbus_aupath_manager_emit_path_available(object, source_id, player_id);
-        break;
-    }
+    DBus::mk_proxy_async<AudioPath::Source::PType>(dest, path, done_fn);
 
     return TRUE;
 }
