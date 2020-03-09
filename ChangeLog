@@ -1,3 +1,15 @@
+2020-03-09  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.5 released.
+
+	* D-Bus: Avoid system deadlock by creating D-Bus proxies to clients
+	  asynchronously when they register. Previously, we did it
+	  synchronously, and this led to a deadlock situations on unfortunate
+	  schedules.
+
+	* Misc: General modernizations (C++14, Doctest, upgraded common code,
+	  buildable on modern Linux distributions, fixed compiler warnings).
+
 2018-06-20  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.4 released.
@@ -57,4 +69,4 @@
 	  functional
 
 
-Copyright 2017, 2018 T+A elektroakustik GmbH & Co. KG
+Copyright 2017, 2018, 2020 T+A elektroakustik GmbH & Co. KG
