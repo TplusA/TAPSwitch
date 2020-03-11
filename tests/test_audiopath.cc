@@ -41,7 +41,7 @@ struct _tdbusaupathPlayer
 
   public:
     _tdbusaupathPlayer(std::string &&dummy): dummy_(std::move(dummy)) {}
-    const char *const_string() const { return dummy_.c_str(); }
+    const std::string &const_string() const { return dummy_; }
 };
 
 struct _tdbusaupathSource
@@ -51,7 +51,7 @@ struct _tdbusaupathSource
 
   public:
     _tdbusaupathSource(std::string &&dummy): dummy_(std::move(dummy)) {}
-    const char *const_string() const { return dummy_.c_str(); }
+    const std::string &const_string() const { return dummy_; }
 };
 
 namespace std
