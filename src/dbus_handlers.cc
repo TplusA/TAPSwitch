@@ -325,9 +325,10 @@ static void emit_path_switch_signal(tdbusaupathManager *object,
  * System policy: We assume completion of audio path switching is allowed in
  *                case we don't know for sure.
  */
-static bool is_audio_path_enable_allowed(const Maybe<bool> &state)
+static bool is_audio_path_enable_allowed(const Maybe<bool> &power_state,
+                                         const Maybe<bool> &audio_state)
 {
-    return state == true || !state.is_known();
+    return !(power_state == false || audio_state == false);
 }
 
 gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
@@ -340,7 +341,8 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
     bool select_source_now =
-        is_audio_path_enable_allowed(data->appliance_state_.is_audio_path_ready());
+        is_audio_path_enable_allowed(data->appliance_state_.is_up_and_running(),
+                                     data->appliance_state_.is_audio_path_ready());
     GVariantWrapper request_data(arg_request_data);
     const std::string *player_id;
     bool success = false;
@@ -742,33 +744,57 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
 
 gboolean dbusmethod_appliance_set_ready_state(tdbusaupathAppliance *object,
                                               GDBusMethodInvocation *invocation,
-                                              const guchar state,
+                                              const guchar audio_state,
+                                              const guchar power_state,
                                               gpointer user_data)
 {
     enter_audiopath_appliance_handler(invocation);
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
+    bool suspended;
 
-    switch(state)
+    switch(power_state)
     {
+      case 1:
+        msg_info("Appliance suspended");
+        suspended = data->appliance_state_.set_suspend_mode();
+        break;
+
+      case 2:
+        msg_info("Appliance powered");
+        data->appliance_state_.set_up_and_running();
+        suspended = false;
+        break;
+
       case 0:
+      default:
+        msg_info("Appliance power state unknown");
+        data->appliance_state_.set_power_state_unknown();
+        suspended = false;
+        break;
+    }
+
+    switch(audio_state)
+    {
+      case 1:
         msg_info("Appliance is not ready to play");
         data->appliance_state_.set_audio_path_blocked();
         break;
 
-      case 1:
+      case 2:
         msg_info("Appliance is ready to play");
         data->appliance_state_.set_audio_path_ready();
         break;
 
-      case 2:
+      case 0:
       default:
         msg_info("Appliance ready-to-play state unknown");
         data->appliance_state_.set_audio_path_unknown();
         break;
     }
 
-    if(is_audio_path_enable_allowed(data->appliance_state_.is_audio_path_ready()))
+    if(is_audio_path_enable_allowed(data->appliance_state_.is_up_and_running(),
+                                    data->appliance_state_.is_audio_path_ready()))
         process_pending_audio_source_activation(object, invocation, *data);
     else
         tdbus_aupath_appliance_complete_set_ready_state(object, invocation);

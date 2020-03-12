@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -23,17 +23,11 @@
 #include "appliance.hh"
 #include "messages.h"
 
-void AudioPath::Appliance::set_audio_path_unknown()
-{
-    is_ready_for_playback_.set_unknown();
-}
-
-static bool set_state(Maybe<bool> &state, bool new_state,
-                      const char *warning_message)
+static bool set_state(Maybe<bool> &state, bool new_state, const char *what)
 {
     if(state == new_state)
     {
-        msg_error(0, LOG_WARNING, "%s", warning_message);
+        msg_error(0, LOG_WARNING, "Set %s again (unchanged)", what);
         return false;
     }
 
@@ -42,14 +36,32 @@ static bool set_state(Maybe<bool> &state, bool new_state,
     return true;
 }
 
+void AudioPath::Appliance::set_power_state_unknown()
+{
+    is_up_and_running_.set_unknown();
+}
+
+bool AudioPath::Appliance::set_suspend_mode()
+{
+    return set_state(is_up_and_running_, false, "suspend mode");
+}
+
+bool AudioPath::Appliance::set_up_and_running()
+{
+    return set_state(is_up_and_running_, true, "powered mode");
+}
+
+void AudioPath::Appliance::set_audio_path_unknown()
+{
+    is_ready_for_playback_.set_unknown();
+}
+
 bool AudioPath::Appliance::set_audio_path_ready()
 {
-    return set_state(is_ready_for_playback_, true,
-                     "Set audio path ready again");
+    return set_state(is_ready_for_playback_, true, "audio path ready");
 }
 
 bool AudioPath::Appliance::set_audio_path_blocked()
 {
-    return set_state(is_ready_for_playback_, false,
-                     "Set audio path blocked again");
+    return set_state(is_ready_for_playback_, false, "audio path blocked");
 }

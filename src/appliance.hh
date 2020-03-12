@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -32,6 +32,7 @@ namespace AudioPath
 class Appliance
 {
   private:
+    Maybe<bool> is_up_and_running_;
     Maybe<bool> is_ready_for_playback_;
 
   public:
@@ -40,7 +41,12 @@ class Appliance
 
     explicit Appliance() {}
 
+    const Maybe<bool> &is_up_and_running() const { return is_up_and_running_; }
     const Maybe<bool> &is_audio_path_ready() const { return is_ready_for_playback_; }
+
+    void set_power_state_unknown();
+    bool set_suspend_mode();
+    bool set_up_and_running();
 
     void set_audio_path_unknown();
     bool set_audio_path_ready();
