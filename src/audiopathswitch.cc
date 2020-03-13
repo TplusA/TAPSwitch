@@ -91,10 +91,9 @@ static void deselect_source(const AudioPath::Paths &paths,
               old_source->id_.c_str(), old_source->name_.c_str());
 
     GErrorWrapper error;
-    tdbus_aupath_source_call_deselected_sync(old_source->get_dbus_proxy().get_as_nonconst(),
-                                             deselected_id.c_str(),
-                                             GVariantWrapper::get(request_data),
-                                             nullptr, error.await());
+    tdbus_aupath_source_call_deselected_sync(
+        old_source->get_dbus_proxy().get_as_nonconst(), deselected_id.c_str(),
+        GVariantWrapper::get(request_data), nullptr, error.await());
 
     if(error.log_failure("Deselect source"))
         msg_error(0, LOG_ERR, "%sDeselecting audio source %s failed",
@@ -273,6 +272,39 @@ AudioPath::Switch::complete_pending_source_activation(const AudioPath::Paths &pa
     current_source_id_ = path.first->id_;
 
     return result;
+}
+
+AudioPath::Switch::ActivateResult
+AudioPath::Switch::cancel_pending_source_activation(const AudioPath::Paths &paths,
+                                                    std::string &source_id)
+{
+    if(!pending_.have_pending_activation())
+        return ActivateResult::ERROR_SOURCE_UNKNOWN;
+
+    const auto path(paths.lookup_path(pending_.get_audio_source_id()));
+
+    pending_.take_audio_source_id(source_id);
+
+    const AudioPath::Source *source = paths.lookup_source(source_id);
+    auto request_data(pending_.clear());
+
+    GErrorWrapper error;
+    tdbus_aupath_source_call_deselected_sync(source->get_dbus_proxy().get_as_nonconst(),
+                                             source_id.c_str(),
+                                             GVariantWrapper::get(request_data),
+                                             nullptr, error.await());
+
+    current_source_id_.clear();
+
+    if(error.log_failure("Deselect source (canceled)"))
+    {
+        msg_error(0, LOG_ERR,
+                  "%sDeselecting audio source %s (canceled) failed",
+                  debug_prefix, source->id_.c_str());
+        return ActivateResult::ERROR_SOURCE_FAILED;
+    }
+
+    return ActivateResult::OK_PLAYER_SWITCHED;
 }
 
 AudioPath::Switch::ReleaseResult

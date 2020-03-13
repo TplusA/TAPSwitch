@@ -60,8 +60,32 @@ class Switch
     struct PendingActivation
     {
       private:
+        /*!
+         * ID of audio source to select when appliance gets ready.
+         *
+         * This ID is only non-empty while waiting for the appliance to get
+         * ready to produce some audio. It is filled in when trying to activate
+         * an audio source at a time the appliance is in some state not yet
+         * suitable for playback (sleep mode or something like that).
+         */
         std::string source_id_;
+
+        /*!
+         * Data passed by caller when requesting an audio source.
+         *
+         * These data are forwarded to the player on activation and
+         * deactivation, and also to the audio source when selection is
+         * finished or on hold. We do not look inside the data, we only forward
+         * them where needed.
+         */
         GVariantWrapper request_data_;
+
+        /*!
+         * Stores the result of the first phase of audio path switch.
+         *
+         * This is the result of the player deactivation/activation part of
+         * audio path switching.
+         */
         ActivateResult phase_one_result_;
 
       public:
@@ -101,12 +125,7 @@ class Switch
     std::string current_player_id_;
 
     /*!
-     * ID of audio source to select when appliance get ready.
-     *
-     * This ID is only non-empty while waiting for the appliance to get ready
-     * to produce some audio. It is filled in when trying to activate an audio
-     * source at a time the appliance is in some state not yet suitable for
-     * playback (sleep mode or something like that).
+     * State while waiting for the appliance to get ready.
      */
     PendingActivation pending_;
 
@@ -137,6 +156,12 @@ class Switch
      */
     ActivateResult complete_pending_source_activation(const Paths &paths,
                                                       std::string *source_id);
+
+    /*!
+     * Cancel deferred audio path activation, if any.
+     */
+    ActivateResult cancel_pending_source_activation(const Paths &paths,
+                                                    std::string &source_id);
 
     ReleaseResult release_path(const Paths &paths, bool kill_player,
                                const std::string *&player_id);

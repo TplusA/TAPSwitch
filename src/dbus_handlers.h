@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -73,7 +73,8 @@ gboolean dbusmethod_aupath_get_source_info(tdbusaupathManager *object,
                                            gpointer user_data);
 gboolean dbusmethod_appliance_set_ready_state(tdbusaupathAppliance *object,
                                               GDBusMethodInvocation *invocation,
-                                              const guchar state,
+                                              const guchar audio_state,
+                                              const guchar power_state,
                                               gpointer user_data);
 gboolean dbusmethod_appliance_get_state(tdbusaupathAppliance *object,
                                         GDBusMethodInvocation *invocation,
