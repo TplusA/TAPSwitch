@@ -749,6 +749,40 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
     }
 }
 
+static void cancel_pending_audio_source_activation(GDBusMethodInvocation *invocation,
+                                                   DBus::HandlerData &data)
+{
+    std::string source_id;
+    const auto result =
+        data.audio_path_switch_.cancel_pending_source_activation(data.audio_paths_,
+                                                                 source_id);
+
+    switch(result)
+    {
+      case AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN:
+        /* had no pending activation */
+        break;
+
+      case AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED:
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED:
+        complete_all_pending_calls(
+            data.pending_audio_source_activations_, source_id,
+            data.audio_path_switch_, false, true, false,
+            G_DBUS_ERROR_ACCESS_DENIED,
+            "Canceled audio source activation");
+        break;
+
+      case AudioPath::Switch::ActivateResult::ERROR_PLAYER_UNKNOWN:
+      case AudioPath::Switch::ActivateResult::ERROR_PLAYER_FAILED:
+      case AudioPath::Switch::ActivateResult::OK_UNCHANGED:
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME:
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME_SOURCE_DEFERRED:
+      case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED:
+        BUG("Unexpected cancel result %d", int(result));
+        break;
+    }
+}
+
 gboolean dbusmethod_appliance_set_ready_state(tdbusaupathAppliance *object,
                                               GDBusMethodInvocation *invocation,
                                               const guchar audio_state,
@@ -804,7 +838,12 @@ gboolean dbusmethod_appliance_set_ready_state(tdbusaupathAppliance *object,
                                     data->appliance_state_.is_audio_path_ready()))
         process_pending_audio_source_activation(object, invocation, *data);
     else
+    {
+        if(suspended)
+            cancel_pending_audio_source_activation(invocation, *data);
+
         tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
+    }
 
     return TRUE;
 }

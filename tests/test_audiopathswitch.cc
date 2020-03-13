@@ -921,4 +921,39 @@ TEST_CASE_FIXTURE(Fixture, "Switch to same path twice while appliance is not rea
     CHECK(source_id == "srcB1");
 }
 
+/*!\test
+ * The current activation is canceled when the appliance suspends.
+ */
+TEST_CASE_FIXTURE(Fixture, "Activate audio path while appliance is not ready and then suspends")
+{
+    AudioPath::Appliance appliance;
+    CHECK(appliance.set_up_and_running());
+    CHECK(appliance.set_audio_path_blocked());
+
+    const std::string *player_id;
+
+    /* try to activate */
+    expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
+    expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
+
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+                                        appliance.is_audio_path_ready() == true)) ==
+          static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
+
+    REQUIRE(player_id != nullptr);
+    CHECK(*player_id == "pl1");
+    CHECK(pswitch->get_player_id() == "pl1");
+    mock_audiopath_dbus->done();
+    mock_messages->done();
+
+    /* appliance enters suspend mode */
+    CHECK(appliance.set_suspend_mode());
+    expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
+    std::string source_id;
+    CHECK(static_cast<int>(pswitch->cancel_pending_source_activation(*paths, source_id)) ==
+          static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
+    CHECK(pswitch->get_player_id() == "pl1");
+    CHECK(source_id == "srcB1");
+}
+
 /*!@}*/

@@ -157,6 +157,12 @@ class Switch
     ActivateResult complete_pending_source_activation(const Paths &paths,
                                                       std::string *source_id);
 
+    /*!
+     * Cancel deferred audio path activation, if any.
+     */
+    ActivateResult cancel_pending_source_activation(const Paths &paths,
+                                                    std::string &source_id);
+
     ReleaseResult release_path(const Paths &paths, bool kill_player,
                                const std::string *&player_id);
 
