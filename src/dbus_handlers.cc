@@ -591,7 +591,7 @@ static void enter_audiopath_appliance_handler(GDBusMethodInvocation *invocation)
 
 static void complete_pending_call(
         const DBus::HandlerData::Pending &pending, const std::string &player_id,
-        bool have_switched, const char *error_message,
+        bool have_switched, GDBusError error_code, const char *error_message,
         std::unordered_set<tdbusaupathManager *> &manager_objects,
         bool suppress_activated_signal)
 {
@@ -606,7 +606,7 @@ static void complete_pending_call(
                                                      have_switched);
     else
         g_dbus_method_invocation_return_error_literal(invocation,
-                                                      G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
+                                                      G_DBUS_ERROR, error_code,
                                                       error_message);
 
     if(!suppress_activated_signal &&
@@ -659,6 +659,7 @@ static void complete_all_pending_calls(
         const std::string &source_id,
         const AudioPath::Switch &audio_path_switch,
         bool success, bool suppress_activated_signal, bool have_switched,
+        GDBusError error_code = G_DBUS_ERROR_FAILED,
         const char *error_message = nullptr,
         std::function<void()> &&after_completion = nullptr)
 {
@@ -668,7 +669,7 @@ static void complete_all_pending_calls(
 
     for(const auto &p : pending)
         complete_pending_call(p, audio_path_switch.get_player_id(),
-                              have_switched, error_message,
+                              have_switched, error_code, error_message,
                               manager_objects, suppress_activated_signal);
 
     if(after_completion != nullptr)
@@ -701,7 +702,7 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
         complete_all_pending_calls(
             data.pending_audio_source_activations_, source_id,
             data.audio_path_switch_, false, false, false,
-            "Source process failed");
+            G_DBUS_ERROR_INVALID_ARGS, "Source process failed");
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_PLAYER_UNKNOWN:
@@ -709,6 +710,7 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
         complete_all_pending_calls(
             data.pending_audio_source_activations_, source_id,
             data.audio_path_switch_, false, false, false,
+            G_DBUS_ERROR_INVALID_ARGS,
             "Unexpected result while completing pending audio source activation",
             [invocation, result] ()
             {
@@ -726,7 +728,7 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
             data.pending_audio_source_activations_, source_id,
             data.audio_path_switch_, true,
             result == AudioPath::Switch::ActivateResult::OK_UNCHANGED,
-            false, nullptr,
+            false, G_DBUS_ERROR_FAILED, nullptr,
             [object, invocation] ()
             {
                 tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
@@ -738,7 +740,7 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
         complete_all_pending_calls(
             data.pending_audio_source_activations_, source_id,
             data.audio_path_switch_, true, false, true,
-            nullptr,
+            G_DBUS_ERROR_FAILED, nullptr,
             [object, invocation] ()
             {
                 tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
