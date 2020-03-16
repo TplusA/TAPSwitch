@@ -1,3 +1,12 @@
+2020-03-19  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.6 released.
+
+	* Audio path synchronization: The appliance's power state is
+	  communicated together with audio path ready-state. Changes in power
+	  state to suspend mode trigger audio paths request cancelations now
+	  to avoid D-Bus timeouts in certain situations.
+
 2020-03-09  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.5 released.
