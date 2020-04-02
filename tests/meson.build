@@ -35,7 +35,7 @@ test('Audio path',
         cpp_args: '-DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING',
         build_by_default: false),
     workdir: meson.current_build_dir(),
-    args: ['--reporters=strboxml', '--out=test_connman_service.junit.xml']
+    args: ['--reporters=strboxml', '--out=test_audiopath.junit.xml']
 )
 
 test('Audio path switching',
@@ -48,5 +48,5 @@ test('Audio path switching',
         dependencies: glib_deps,
         build_by_default: false),
     workdir: meson.current_build_dir(),
-    args: ['--reporters=strboxml', '--out=test_connman_service.junit.xml']
+    args: ['--reporters=strboxml', '--out=test_audiopathswitch.junit.xml']
 )
