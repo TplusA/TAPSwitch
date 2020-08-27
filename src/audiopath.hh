@@ -164,7 +164,7 @@ class Paths
     const T &add_item(T &&item, bool &inserted);
 };
 
-};
+}
 
 /*!@}*/
 
