@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -488,8 +488,12 @@ gboolean dbusmethod_aupath_get_active_player(tdbusaupathManager *object,
 
     auto *data = static_cast<DBus::HandlerData *>(user_data);
 
-    tdbus_aupath_manager_complete_get_active_player(object, invocation,
-                                                    data->audio_path_switch_.get_player_id().c_str());
+    if(source_id != nullptr && source_id[0] != '\0' &&
+       data->audio_path_switch_.get_source_id() != source_id)
+        tdbus_aupath_manager_complete_get_active_player(object, invocation, "");
+    else
+        tdbus_aupath_manager_complete_get_active_player(object, invocation,
+                                                        data->audio_path_switch_.get_player_id().c_str());
 
     return TRUE;
 }

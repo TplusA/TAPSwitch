@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -173,6 +173,7 @@ class Switch
                                const std::string *&player_id,
                                GVariantWrapper &&request_data);
 
+    const std::string &get_source_id() const { return current_source_id_; }
     const std::string &get_player_id() const { return current_player_id_; }
 };
 
