@@ -532,6 +532,21 @@ gboolean dbusmethod_aupath_get_paths(tdbusaupathManager *object,
     return TRUE;
 }
 
+gboolean dbusmethod_aupath_get_current_path(tdbusaupathManager *object,
+                                            GDBusMethodInvocation *invocation,
+                                            gpointer user_data)
+{
+    enter_audiopath_manager_handler(invocation);
+
+    const auto *const data = static_cast<DBus::HandlerData *>(user_data);
+    tdbus_aupath_manager_complete_get_current_path(
+            object, invocation,
+            data->audio_path_switch_.get_source_id().c_str(),
+            data->audio_path_switch_.get_player_id().c_str());
+
+    return TRUE;
+}
+
 gboolean dbusmethod_aupath_get_player_info(tdbusaupathManager *object,
                                            GDBusMethodInvocation *invocation,
                                            const gchar *player_id,

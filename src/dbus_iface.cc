@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -85,6 +85,9 @@ static void bus_acquired(GDBusConnection *connection,
                      data.handler_data);
     g_signal_connect(data.audiopath_manager_iface, "handle-get-paths",
                      G_CALLBACK(dbusmethod_aupath_get_paths),
+                     data.handler_data);
+    g_signal_connect(data.audiopath_manager_iface, "handle-get-current-path",
+                     G_CALLBACK(dbusmethod_aupath_get_current_path),
                      data.handler_data);
     g_signal_connect(data.audiopath_manager_iface, "handle-get-player-info",
                      G_CALLBACK(dbusmethod_aupath_get_player_info),
