@@ -354,6 +354,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
     bool success = false;
     bool suppress_activated_signal = false;
     bool is_activation_deferred = false;
+    bool emit_reactivation = false;
 
     msg_vinfo(MESSAGE_LEVEL_DIAG, "Requested audio source \"%s\"", source_id);
 
@@ -394,6 +395,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         success = true;
         select_source_now = true;
         suppress_activated_signal = true;
+        emit_reactivation = true;
         break;
 
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME_SOURCE_DEFERRED:
@@ -418,9 +420,21 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
     if(success)
     {
         if(select_source_now)
-            msg_vinfo(MESSAGE_LEVEL_DIAG,
-                      "Activated audio source %s, %semitting signal",
-                      source_id, suppress_activated_signal ? "not " : "");
+        {
+            if(emit_reactivation)
+            {
+                msg_vinfo(MESSAGE_LEVEL_DIAG,
+                          "Reactivated audio source %s", source_id);
+                tdbus_aupath_manager_emit_path_reactivated(
+                    object, source_id, player_id->c_str(),
+                    GVariantWrapper::get(request_data));
+            }
+            else
+                msg_vinfo(MESSAGE_LEVEL_DIAG,
+                          "Activated audio source %s, %semitting signal",
+                          source_id, suppress_activated_signal ? "not " : "");
+
+        }
         else
         {
             msg_vinfo(MESSAGE_LEVEL_DIAG,
