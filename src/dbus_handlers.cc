@@ -23,7 +23,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <unordered_set>
+#include <unordered_map>
 
 #include <glib.h>
 
@@ -296,6 +296,7 @@ gboolean dbusmethod_aupath_register_source(tdbusaupathManager *object,
 static void emit_path_switch_signal(tdbusaupathManager *object,
                                     const gchar *source_id,
                                     const std::string *const player_id,
+                                    GVariantWrapper &&request_data,
                                     bool success, bool is_deferred)
 {
     if(success)
@@ -307,7 +308,8 @@ static void emit_path_switch_signal(tdbusaupathManager *object,
                                                     player_id->c_str());
         else
             tdbus_aupath_manager_emit_path_activated(object, source_id,
-                                                     player_id->c_str());
+                                                     player_id->c_str(),
+                                                     GVariantWrapper::get(request_data));
     }
     else
     {
@@ -320,7 +322,8 @@ static void emit_path_switch_signal(tdbusaupathManager *object,
             tdbus_aupath_manager_emit_path_activated(object, "",
                                                      (player_id != nullptr)
                                                      ? player_id->c_str()
-                                                     : "");
+                                                     : "",
+                                                     GVariantWrapper::get(request_data));
     }
 }
 
@@ -357,7 +360,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
     switch(data->audio_path_switch_.activate_source(data->audio_paths_,
                                                     source_id, player_id,
                                                     select_source_now,
-                                                    std::move(request_data)))
+                                                    GVariantWrapper(request_data)))
     {
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN:
         g_dbus_method_invocation_return_error_literal(invocation,
@@ -426,7 +429,8 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
 
             g_object_ref(G_OBJECT(object));
             g_object_ref(G_OBJECT(invocation));
-            data->pending_audio_source_activations_.emplace_back(object, invocation);
+            data->pending_audio_source_activations_.emplace_back(
+                            object, invocation, GVariantWrapper(request_data));
         }
     }
     else
@@ -436,6 +440,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
 
     if(!suppress_activated_signal)
         emit_path_switch_signal(object, source_id, player_id,
+                                std::move(request_data),
                                 success, is_activation_deferred);
 
     return TRUE;
@@ -456,7 +461,7 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
 
     switch(data->audio_path_switch_.release_path(data->audio_paths_,
                                                  deactivate_player, player_id,
-                                                 std::move(request_data)))
+                                                 GVariantWrapper(request_data)))
     {
       case AudioPath::Switch::ReleaseResult::SOURCE_DESELECTED:
       case AudioPath::Switch::ReleaseResult::PLAYER_DEACTIVATED:
@@ -474,7 +479,8 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
         tdbus_aupath_manager_emit_path_activated(object, "",
                                                  (player_id != nullptr)
                                                  ? player_id->c_str()
-                                                 : "");
+                                                 : "",
+                                                 GVariantWrapper::get(request_data));
 
     return TRUE;
 }
@@ -612,9 +618,9 @@ static void enter_audiopath_appliance_handler(GDBusMethodInvocation *invocation)
 }
 
 static void complete_pending_call(
-        const DBus::HandlerData::Pending &pending, const std::string &player_id,
+        DBus::HandlerData::Pending &pending, const std::string &player_id,
         bool have_switched, GDBusError error_code, const char *error_message,
-        std::unordered_set<tdbusaupathManager *> &manager_objects,
+        std::unordered_map<tdbusaupathManager *, GVariantWrapper> &manager_objects,
         bool suppress_activated_signal)
 {
     auto *object = static_cast<tdbusaupathManager *>(pending.object_);
@@ -635,7 +641,7 @@ static void complete_pending_call(
        manager_objects.find(object) == manager_objects.end())
     {
         g_object_ref(G_OBJECT(object));
-        manager_objects.insert(object);
+        manager_objects[object] = std::move(pending.request_data_);
     }
 
     g_object_unref(G_OBJECT(object));
@@ -661,6 +667,7 @@ static void log_deferred_activation(const std::string &source_id,
 static void emit_path_activated(tdbusaupathManager *manager_object,
                                 const std::string &source_id,
                                 const AudioPath::Switch &audio_path_switch,
+                                GVariantWrapper &&request_data,
                                 bool success)
 {
     if(manager_object == nullptr)
@@ -668,10 +675,12 @@ static void emit_path_activated(tdbusaupathManager *manager_object,
 
     if(success)
         tdbus_aupath_manager_emit_path_activated(manager_object, source_id.c_str(),
-                                                 audio_path_switch.get_player_id().c_str());
+                                                 audio_path_switch.get_player_id().c_str(),
+                                                 GVariantWrapper::get(request_data));
     else
         tdbus_aupath_manager_emit_path_activated(manager_object, "",
-                                                 audio_path_switch.get_player_id().c_str());
+                                                 audio_path_switch.get_player_id().c_str(),
+                                                 GVariantWrapper::get(request_data));
 
     g_object_unref(G_OBJECT(manager_object));
 }
@@ -687,9 +696,9 @@ static void complete_all_pending_calls(
 {
     log_deferred_activation(source_id, success, suppress_activated_signal);
 
-    std::unordered_set<tdbusaupathManager *> manager_objects;
+    std::unordered_map<tdbusaupathManager *, GVariantWrapper> manager_objects;
 
-    for(const auto &p : pending)
+    for(auto &p : pending)
         complete_pending_call(p, audio_path_switch.get_player_id(),
                               have_switched, error_code, error_message,
                               manager_objects, suppress_activated_signal);
@@ -699,8 +708,9 @@ static void complete_all_pending_calls(
 
     pending.clear();
 
-    for(const auto &m : manager_objects)
-        emit_path_activated(m, source_id, audio_path_switch, success);
+    for(auto &m : manager_objects)
+        emit_path_activated(m.first, source_id, audio_path_switch,
+                            std::move(m.second), success);
 }
 
 static void process_pending_audio_source_activation(tdbusaupathAppliance *object,
