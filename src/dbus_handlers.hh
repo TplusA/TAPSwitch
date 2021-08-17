@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -51,10 +51,12 @@ class HandlerData
     {
         void *const object_;
         void *const invocation_;
+        GVariantWrapper request_data_;
 
-        constexpr Pending(void *object, void *invocation):
+        Pending(void *object, void *invocation, GVariantWrapper &&request_data):
             object_(object),
-            invocation_(invocation)
+            invocation_(invocation),
+            request_data_(std::move(request_data))
         {}
     };
 
