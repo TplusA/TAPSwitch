@@ -324,6 +324,51 @@ static void emit_path_switch_signal(tdbusaupathManager *object,
     }
 }
 
+static void complete_pending_call(
+        const DBus::HandlerData::Pending &pending, const std::string &player_id,
+        bool have_switched, GDBusError error_code, const char *error_message,
+        std::unordered_set<tdbusaupathManager *> *manager_objects,
+        bool suppress_activated_signal)
+{
+    auto *object = static_cast<tdbusaupathManager *>(pending.object_);
+    auto *invocation = static_cast<GDBusMethodInvocation *>(pending.invocation_);
+
+    log_assert(object != nullptr && invocation != nullptr);
+
+    if(error_message == nullptr)
+        tdbus_aupath_manager_complete_request_source(object, invocation,
+                                                     player_id.c_str(),
+                                                     have_switched);
+    else
+        g_dbus_method_invocation_return_error_literal(invocation,
+                                                      G_DBUS_ERROR, error_code,
+                                                      error_message);
+
+    if(!suppress_activated_signal &&
+       manager_objects != nullptr &&
+       manager_objects->find(object) == manager_objects->end())
+    {
+        g_object_ref(G_OBJECT(object));
+        manager_objects->insert(object);
+    }
+
+    g_object_unref(G_OBJECT(object));
+    g_object_unref(G_OBJECT(invocation));
+}
+
+static void fail_all_pending_calls(
+        std::vector<DBus::HandlerData::Pending> &pending,
+        const AudioPath::Switch &audio_path_switch,
+        const char *error_message)
+{
+    for(const auto &p : pending)
+        complete_pending_call(p, audio_path_switch.get_player_id(),
+                              false, G_DBUS_ERROR_FAILED, error_message,
+                              nullptr, true);
+
+    pending.clear();
+}
+
 /*!
  * System policy: We assume completion of audio path switching is allowed in
  *                case we don't know for sure.
@@ -414,6 +459,20 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
         break;
     }
 
+    switch(deselected_result)
+    {
+      case AudioPath::Switch::DeselectedAudioSourceResult::NONE:
+      case AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE:
+        break;
+
+      case AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_PENDING:
+        fail_all_pending_calls(
+            data->pending_audio_source_activations_, data->audio_path_switch_,
+            "Canceled pending audio source activation because "
+            "a different source has been requested");
+        break;
+    }
+
     if(success)
     {
         if(select_source_now)
@@ -469,6 +528,20 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
 
       case AudioPath::Switch::ReleaseResult::UNCHANGED:
         suppress_activated_signal = true;
+        break;
+    }
+
+    switch(deselected_result)
+    {
+      case AudioPath::Switch::DeselectedAudioSourceResult::NONE:
+      case AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE:
+        break;
+
+      case AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_PENDING:
+        fail_all_pending_calls(
+            data->pending_audio_source_activations_, data->audio_path_switch_,
+            "Canceled pending audio source activation because "
+            "the audio path been released");
         break;
     }
 
@@ -600,37 +673,6 @@ static void enter_audiopath_appliance_handler(GDBusMethodInvocation *invocation)
               g_dbus_method_invocation_get_method_name(invocation));
 }
 
-static void complete_pending_call(
-        const DBus::HandlerData::Pending &pending, const std::string &player_id,
-        bool have_switched, GDBusError error_code, const char *error_message,
-        std::unordered_set<tdbusaupathManager *> &manager_objects,
-        bool suppress_activated_signal)
-{
-    auto *object = static_cast<tdbusaupathManager *>(pending.object_);
-    auto *invocation = static_cast<GDBusMethodInvocation *>(pending.invocation_);
-
-    log_assert(object != nullptr && invocation != nullptr);
-
-    if(error_message == nullptr)
-        tdbus_aupath_manager_complete_request_source(object, invocation,
-                                                     player_id.c_str(),
-                                                     have_switched);
-    else
-        g_dbus_method_invocation_return_error_literal(invocation,
-                                                      G_DBUS_ERROR, error_code,
-                                                      error_message);
-
-    if(!suppress_activated_signal &&
-       manager_objects.find(object) == manager_objects.end())
-    {
-        g_object_ref(G_OBJECT(object));
-        manager_objects.insert(object);
-    }
-
-    g_object_unref(G_OBJECT(object));
-    g_object_unref(G_OBJECT(invocation));
-}
-
 static void log_deferred_activation(const std::string &source_id,
                                     bool success, bool suppress_activated_signal)
 {
@@ -681,7 +723,7 @@ static void complete_all_pending_calls(
     for(const auto &p : pending)
         complete_pending_call(p, audio_path_switch.get_player_id(),
                               have_switched, error_code, error_message,
-                              manager_objects, suppress_activated_signal);
+                              &manager_objects, suppress_activated_signal);
 
     if(after_completion != nullptr)
         after_completion();
