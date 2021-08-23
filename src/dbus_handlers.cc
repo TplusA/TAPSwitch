@@ -841,8 +841,7 @@ static void process_pending_audio_source_activation(tdbusaupathAppliance *object
     }
 }
 
-static void cancel_pending_audio_source_activation(GDBusMethodInvocation *invocation,
-                                                   DBus::HandlerData &data)
+static void cancel_pending_audio_source_activation(DBus::HandlerData &data)
 {
     std::string source_id;
     const auto result =
@@ -932,7 +931,7 @@ gboolean dbusmethod_appliance_set_ready_state(tdbusaupathAppliance *object,
     else
     {
         if(suspended)
-            cancel_pending_audio_source_activation(invocation, *data);
+            cancel_pending_audio_source_activation(*data);
 
         tdbus_aupath_appliance_complete_set_ready_state(object, invocation);
     }
