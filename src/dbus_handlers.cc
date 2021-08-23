@@ -348,6 +348,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
                                      data->appliance_state_.is_audio_path_ready());
     GVariantWrapper request_data(arg_request_data);
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
     bool success = false;
     bool suppress_activated_signal = false;
     bool is_activation_deferred = false;
@@ -356,6 +357,7 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
 
     switch(data->audio_path_switch_.activate_source(data->audio_paths_,
                                                     source_id, player_id,
+                                                    deselected_result,
                                                     select_source_now,
                                                     std::move(request_data)))
     {
@@ -452,10 +454,12 @@ gboolean dbusmethod_aupath_release_path(tdbusaupathManager *object,
     auto *data = static_cast<DBus::HandlerData *>(user_data);
     GVariantWrapper request_data(arg_request_data);
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
     bool suppress_activated_signal = false;
 
     switch(data->audio_path_switch_.release_path(data->audio_paths_,
                                                  deactivate_player, player_id,
+                                                 deselected_result,
                                                  std::move(request_data)))
     {
       case AudioPath::Switch::ReleaseResult::SOURCE_DESELECTED:
