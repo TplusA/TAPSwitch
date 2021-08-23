@@ -1,3 +1,25 @@
+2021-08-23  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.8 released.
+
+	* D-Bus: Emit extra data passed to audio source activation to
+	  de.tahifi.AudioPath.Manager.PathActivated() and the new
+	  de.tahifi.AudioPath.Manager.PathReactivated() signal. This enables
+	  users of the REST API to send data on audio source activation, used
+	  for glitch-free update of the display on strbo.rest audio source.
+
+	* D-Bus: In case an audio source is requested while another request is
+	  pending, the new request cancels the pending request by letting the
+	  pending RequestSource() D-Bus call fail. This avoids D-Bus timeouts
+	  for processes which do not fully observe the path switching signals.
+
+	* D-Bus: Add de.tahifi.AudioPath.Manager.GetCurrentPath() so that the
+	  REST API can check the system state when it is launched.
+
+	* D-Bus: Fix de.tahifi.AudioPath.Manager.GetActivePlayer() for the
+	  case where the audio source ID is given as a filter, and the player
+	  ID is not.
+
 2020-08-24  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.7 released.
@@ -86,4 +108,4 @@
 	  functional
 
 
-Copyright 2017, 2018, 2020 T+A elektroakustik GmbH & Co. KG
+Copyright 2017, 2018, 2020, 2021 T+A elektroakustik GmbH & Co. KG
