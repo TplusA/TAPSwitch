@@ -33,8 +33,8 @@ players that they may not.
 Each **audio player** must register with _tapswitch_ so that it can be informed
 when it may take the audio device. An audio player is considered _active_ if it
 is allowed to take the audio device, _inactive_ otherwise. If _tapswitch_ tells
-an audio player to deactivate via D-Bus method invocation, then the player
-_must_ release the audio device before the method invocation returns. If
+an audio player via D-Bus method invocation to deactivate itself, then the
+player _must_ release the audio device before the method invocation returns. If
 _tapswitch_ tells an audio player to activate, then it is allowed (but not
 required) to use the audio device.
 
