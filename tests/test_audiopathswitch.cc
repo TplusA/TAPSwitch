@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -176,16 +176,18 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path")
     CHECK(pswitch->get_player_id().empty());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* switch to other source */
@@ -194,11 +196,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path")
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl2");
 
     /* switch back to first source */
@@ -207,11 +210,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path")
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -223,6 +227,7 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path with request data")
     CHECK(pswitch->get_player_id().empty());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     GVariantDict dict;
@@ -234,11 +239,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path with request data")
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'), std::move(GVariantWrapper(request_data)));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1", GVariantWrapper(request_data));
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true, std::move(request_data))) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true, std::move(request_data))) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* switch to other source */
@@ -252,11 +258,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path with request data")
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'), GVariantWrapper(request_data));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2", GVariantWrapper(request_data));
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true, std::move(request_data))) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true, std::move(request_data))) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl2");
 
     /* switch back to first source */
@@ -269,11 +276,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path with request data")
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'), GVariantWrapper(request_data));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1", GVariantWrapper(request_data));
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true, std::move(request_data))) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true, std::move(request_data))) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -283,38 +291,42 @@ TEST_CASE_FIXTURE(Fixture, "Switch complete path with request data")
 TEST_CASE_FIXTURE(Fixture, "Sources for same player")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* switch to other source */
     expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SAME));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* switch back to first source */
     expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SAME));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -324,25 +336,28 @@ TEST_CASE_FIXTURE(Fixture, "Sources for same player")
 TEST_CASE_FIXTURE(Fixture, "Switching to same source is NOP")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
 
     /* second activation */
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_UNCHANGED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -352,25 +367,28 @@ TEST_CASE_FIXTURE(Fixture, "Switching to same source is NOP")
 TEST_CASE_FIXTURE(Fixture, "Switching to nonexistent source keeps current source")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
 
     /* failed activation */
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
             "AUDIO SOURCE SWITCH: Unknown audio source srcD2", false);
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcD2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcD2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
     mock_audiopath_dbus->done();
 
@@ -380,11 +398,12 @@ TEST_CASE_FIXTURE(Fixture, "Switching to nonexistent source keeps current source
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -394,23 +413,26 @@ TEST_CASE_FIXTURE(Fixture, "Switching to nonexistent source keeps current source
 TEST_CASE_FIXTURE(Fixture, "Switching to existent source without player keeps current source")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
 
     /* failed activation */
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcD-", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcD-", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_PLAYER_UNKNOWN));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
     mock_audiopath_dbus->done();
 
@@ -420,11 +442,12 @@ TEST_CASE_FIXTURE(Fixture, "Switching to existent source without player keeps cu
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -434,16 +457,18 @@ TEST_CASE_FIXTURE(Fixture, "Switching to existent source without player keeps cu
 TEST_CASE_FIXTURE(Fixture, "Switch to failing source for same player kills audio path and keeps player active")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* second activation fails */
@@ -455,11 +480,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for same player kills audio
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcA1 failed", false);
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -469,11 +495,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for same player kills audio
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('3'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('E'), "srcE3");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl3");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl3");
 }
 
@@ -483,16 +510,18 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for same player kills audio
 TEST_CASE_FIXTURE(Fixture, "Switch to failing source for other player kills audio path and keeps new player active")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* second activation fails */
@@ -506,11 +535,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for other player kills audi
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed", false);
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl2");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -520,11 +550,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for other player kills audi
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('3'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('E'), "srcE3");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl3");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl3");
 }
 
@@ -534,16 +565,18 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for other player kills audi
 TEST_CASE_FIXTURE(Fixture, "Switch to failing player kills audio path completely")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* first activation */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
 
     /* second activation fails */
@@ -556,11 +589,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing player kills audio path completely
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Activating player pl2 failed", false);
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_PLAYER_FAILED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id().empty());
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -569,11 +603,12 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing player kills audio path completely
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('3'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('E'), "srcE3");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcE3", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl3");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl3");
 }
 
@@ -583,14 +618,16 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing player kills audio path completely
 TEST_CASE_FIXTURE(Fixture, "Switch to nameless source is rejected")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     expect<MockMessages::MsgError>(mock_messages, EINVAL, LOG_ERR,
             "AUDIO SOURCE SWITCH: Empty audio source ID (Invalid argument)", false);
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id().empty());
 }
 
@@ -600,25 +637,28 @@ TEST_CASE_FIXTURE(Fixture, "Switch to nameless source is rejected")
 TEST_CASE_FIXTURE(Fixture, "Releasing path deselects source and can deactivate player")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
 
     expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
     expect<MockAudiopathDBus::PlayerDeactivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
 
-    CHECK(static_cast<int>((pswitch->release_path(*paths, true, player_id))) ==
+    CHECK(static_cast<int>((pswitch->release_path(*paths, true, player_id, deselected_result))) ==
           static_cast<int>(AudioPath::Switch::ReleaseResult::COMPLETE_RELEASE));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id().empty());
 }
 
@@ -628,25 +668,28 @@ TEST_CASE_FIXTURE(Fixture, "Releasing path deselects source and can deactivate p
 TEST_CASE_FIXTURE(Fixture, "Releasing path deselects source and can keep player active")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcA1", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
 
     expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('A'), "srcA1");
 
-    CHECK(static_cast<int>(pswitch->release_path(*paths, false, player_id)) ==
+    CHECK(static_cast<int>(pswitch->release_path(*paths, false, player_id, deselected_result)) ==
           static_cast<int>(AudioPath::Switch::ReleaseResult::SOURCE_DESELECTED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE);
     CHECK(pswitch->get_player_id() == "pl1");
 }
 
@@ -656,11 +699,13 @@ TEST_CASE_FIXTURE(Fixture, "Releasing path deselects source and can keep player 
 TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with player deactivation request is nop")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
-    CHECK(static_cast<int>(pswitch->release_path(*paths, false, player_id)) ==
+    CHECK(static_cast<int>(pswitch->release_path(*paths, false, player_id, deselected_result)) ==
           static_cast<int>(AudioPath::Switch::ReleaseResult::UNCHANGED));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id().empty());
 }
 
@@ -670,11 +715,13 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with player deactivation re
 TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path without player deactivation request is nop")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
-    CHECK(static_cast<int>(pswitch->release_path(*paths, true, player_id)) ==
+    CHECK(static_cast<int>(pswitch->release_path(*paths, true, player_id, deselected_result)) ==
           static_cast<int>(AudioPath::Switch::ReleaseResult::UNCHANGED));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id().empty());
 }
 
@@ -685,6 +732,7 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path without player deactivation
 TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can deactivate player")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, false, aupath_source_proxy('C'), "srcC2");
@@ -694,21 +742,23 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can deac
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed", false);
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
     mock_audiopath_dbus->done();
     mock_messages->done();
 
     expect<MockAudiopathDBus::PlayerDeactivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
 
-    CHECK(static_cast<int>(pswitch->release_path(*paths, true, player_id)) ==
+    CHECK(static_cast<int>(pswitch->release_path(*paths, true, player_id, deselected_result)) ==
           static_cast<int>(AudioPath::Switch::ReleaseResult::PLAYER_DEACTIVATED));
 
     CHECK(player_id == nullptr);
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id().empty());
 }
 
@@ -719,6 +769,7 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can deac
 TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can keep player active")
 {
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, false, aupath_source_proxy('C'), "srcC2");
@@ -728,20 +779,22 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can keep
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed", false);
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, true)) ==
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result, true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
     mock_audiopath_dbus->done();
     mock_messages->done();
 
-    CHECK(static_cast<int>(pswitch->release_path(*paths, false, player_id)) ==
+    CHECK(static_cast<int>(pswitch->release_path(*paths, false, player_id, deselected_result)) ==
           static_cast<int>(AudioPath::Switch::ReleaseResult::UNCHANGED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl2");
 }
 
@@ -754,17 +807,19 @@ TEST_CASE_FIXTURE(Fixture, "Switch path while appliance is not ready")
     CHECK(appliance.set_audio_path_blocked());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* try to activate */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
                                     appliance.is_audio_path_ready() == true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -781,6 +836,60 @@ TEST_CASE_FIXTURE(Fixture, "Switch path while appliance is not ready")
 }
 
 /*!\test
+ * Audio source activation is deferred, then a different source is selected.
+ */
+TEST_CASE_FIXTURE(Fixture, "Switch path during path switch while appliance is not ready")
+{
+    AudioPath::Appliance appliance;
+    CHECK(appliance.set_audio_path_blocked());
+
+    const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
+
+    /* try to activate */
+    expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
+    expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
+
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
+                                    appliance.is_audio_path_ready() == true)) ==
+          static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
+
+    REQUIRE(player_id != nullptr);
+    CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
+    CHECK(pswitch->get_player_id() == "pl1");
+    mock_audiopath_dbus->done();
+    mock_messages->done();
+
+    /* activate another source, canceling the deferred source selection */
+    expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
+    expect<MockAudiopathDBus::PlayerDeactivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
+    expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
+    expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2");
+
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result,
+                                    appliance.is_audio_path_ready() == true)) ==
+          static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
+
+    REQUIRE(player_id != nullptr);
+    CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_PENDING);
+    CHECK(pswitch->get_player_id() == "pl2");
+    mock_audiopath_dbus->done();
+    mock_messages->done();
+
+    /* appliance was blocked, now assume it has told us it is ready */
+    CHECK(appliance.set_audio_path_ready());
+
+    expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2");
+    std::string source_id;
+    CHECK(static_cast<int>(pswitch->complete_pending_source_activation(*paths, &source_id)) ==
+          static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
+    CHECK(pswitch->get_player_id() == "pl2");
+    CHECK(source_id == "srcC2");
+}
+
+/*!\test
  * Deferred audio source activation with request data.
  */
 TEST_CASE_FIXTURE(Fixture, "Switch path with request data while appliance is not ready")
@@ -789,6 +898,7 @@ TEST_CASE_FIXTURE(Fixture, "Switch path with request data while appliance is not
     CHECK(appliance.set_audio_path_blocked());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* try to activate */
     GVariantDict dict;
@@ -801,13 +911,14 @@ TEST_CASE_FIXTURE(Fixture, "Switch path with request data while appliance is not
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'), GVariantWrapper(request_data));
     expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1", GVariantWrapper(request_data));
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
                                             appliance.is_audio_path_ready() == true,
                                             GVariantWrapper(request_data))) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -835,17 +946,19 @@ TEST_CASE_FIXTURE(Fixture, "Switch path twice while appliance is not ready")
     CHECK(appliance.set_audio_path_blocked());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* try to activate the first time */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
                                         appliance.is_audio_path_ready() == true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -856,12 +969,13 @@ TEST_CASE_FIXTURE(Fixture, "Switch path twice while appliance is not ready")
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('C'), "srcC2");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcC2", player_id, deselected_result,
                                         appliance.is_audio_path_ready() == true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl2");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_PENDING);
     CHECK(pswitch->get_player_id() == "pl2");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -887,28 +1001,31 @@ TEST_CASE_FIXTURE(Fixture, "Switch to same path twice while appliance is not rea
     CHECK(appliance.set_audio_path_blocked());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* try to activate the first time */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
                                         appliance.is_audio_path_ready() == true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();
 
     /* try to activate the same audio source again */
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
                                         appliance.is_audio_path_ready() == true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();
@@ -934,17 +1051,19 @@ TEST_CASE_FIXTURE(Fixture, "Activate audio path while appliance is not ready and
     CHECK(appliance.set_audio_path_blocked());
 
     const std::string *player_id;
+    AudioPath::Switch::DeselectedAudioSourceResult deselected_result;
 
     /* try to activate */
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::SourceSelectedOnHoldSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
 
-    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id,
+    CHECK(static_cast<int>(pswitch->activate_source(*paths, "srcB1", player_id, deselected_result,
                                         appliance.is_audio_path_ready() == true)) ==
           static_cast<int>(AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED));
 
     REQUIRE(player_id != nullptr);
     CHECK(*player_id == "pl1");
+    CHECK(deselected_result == AudioPath::Switch::DeselectedAudioSourceResult::NONE);
     CHECK(pswitch->get_player_id() == "pl1");
     mock_audiopath_dbus->done();
     mock_messages->done();

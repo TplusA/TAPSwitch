@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -78,19 +78,26 @@ static bool activate_player(const AudioPath::Player &player,
     return true;
 }
 
-static void deselect_source(const AudioPath::Paths &paths,
-                            const GVariantWrapper &request_data,
-                            std::string &source_id,
-                            AudioPath::Switch::PendingActivation &pending)
+static AudioPath::Switch::DeselectedAudioSourceResult
+deselect_source(const AudioPath::Paths &paths,
+                const GVariantWrapper &request_data, std::string &source_id,
+                AudioPath::Switch::PendingActivation &pending)
 {
+    BUG_IF(!source_id.empty() && pending.have_pending_activation(),
+           "deselect source: have source ID and pending activation");
+
     if(source_id.empty() && !pending.have_pending_activation())
-        return;
+        return AudioPath::Switch::DeselectedAudioSourceResult::NONE;
 
     const std::string &deselected_id(!source_id.empty() ? source_id : pending.get_audio_source_id());
     const AudioPath::Source *old_source = paths.lookup_source(deselected_id);
+    const auto result = source_id.empty()
+        ? AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_PENDING
+        : AudioPath::Switch::DeselectedAudioSourceResult::DESELECTED_ACTIVE;
 
     msg_vinfo(MESSAGE_LEVEL_DEBUG,
-              "%sDeselect audio source %s (%s)", debug_prefix,
+              "%sDeselect %saudio source %s (%s)", debug_prefix,
+              source_id.empty() ? "pending " : "",
               old_source->id_.c_str(), old_source->name_.c_str());
 
     GErrorWrapper error;
@@ -104,6 +111,8 @@ static void deselect_source(const AudioPath::Paths &paths,
 
     source_id.clear();
     pending.clear();
+
+    return result;
 }
 
 static bool select_source(const AudioPath::Source &source, bool is_final_select,
@@ -141,28 +150,35 @@ AudioPath::Switch::ActivateResult
 AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                                    const char *source_id,
                                    const std::string *&player_id,
+                                   DeselectedAudioSourceResult &deselected_result,
                                    bool select_source_now)
 {
     GVariantDict dict;
     g_variant_dict_init(&dict, nullptr);
     auto request_data(GVariantWrapper(g_variant_dict_end(&dict)));
 
-    return activate_source(paths, source_id, player_id, select_source_now,
-                           std::move(request_data));
+    return activate_source(paths, source_id, player_id, deselected_result,
+                           select_source_now, std::move(request_data));
 }
 
 AudioPath::Switch::ActivateResult
 AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                                    const char *source_id,
                                    const std::string *&player_id,
+                                   DeselectedAudioSourceResult &deselected_result,
                                    bool select_source_now,
                                    GVariantWrapper &&request_data)
 {
     player_id = nullptr;
+    deselected_result = DeselectedAudioSourceResult::NONE;
 
     if(source_id[0] == '\0')
     {
         msg_error(EINVAL, LOG_ERR, "%sEmpty audio source ID", debug_prefix);
+
+        if(pending_.have_pending_activation())
+            deselected_result = DeselectedAudioSourceResult::DESELECTED_PENDING;
+
         pending_.clear();
         return ActivateResult::ERROR_SOURCE_UNKNOWN;
     }
@@ -190,12 +206,13 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
 
     if(path.second == nullptr)
     {
+        ActivateResult result;
+
         if(path.first == nullptr)
         {
             msg_error(0, LOG_NOTICE,
                       "%sUnknown audio source %s", debug_prefix, source_id);
-            pending_.clear();
-            return ActivateResult::ERROR_SOURCE_UNKNOWN;
+            result = ActivateResult::ERROR_SOURCE_UNKNOWN;
         }
         else
         {
@@ -204,16 +221,22 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
                       debug_prefix,
                       path.first->player_id_.c_str(),
                       path.first->id_.c_str(), path.first->name_.c_str());
-            pending_.clear();
-            return ActivateResult::ERROR_PLAYER_UNKNOWN;
+            result = ActivateResult::ERROR_PLAYER_UNKNOWN;
         }
+
+        if(pending_.have_pending_activation())
+            deselected_result = DeselectedAudioSourceResult::DESELECTED_PENDING;
+
+        pending_.clear();
+        return result;
     }
     else
         log_assert(path.first != nullptr);
 
     player_id = &path.second->id_;
 
-    deselect_source(paths, request_data, current_source_id_, pending_);
+    deselected_result =
+        deselect_source(paths, request_data, current_source_id_, pending_);
 
     const bool players_changed = (*player_id != current_player_id_);
 
@@ -312,18 +335,21 @@ AudioPath::Switch::cancel_pending_source_activation(const AudioPath::Paths &path
 
 AudioPath::Switch::ReleaseResult
 AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
-                                const std::string *&player_id)
+                                const std::string *&player_id,
+                                DeselectedAudioSourceResult &deselected_result)
 {
     GVariantDict dict;
     g_variant_dict_init(&dict, nullptr);
     auto request_data(GVariantWrapper(g_variant_dict_end(&dict)));
 
-    return release_path(paths, kill_player, player_id, std::move(request_data));
+    return release_path(paths, kill_player, player_id, deselected_result,
+                        std::move(request_data));
 }
 
 AudioPath::Switch::ReleaseResult
 AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
                                 const std::string *&player_id,
+                                DeselectedAudioSourceResult &deselected_result,
                                 GVariantWrapper &&request_data)
 {
     const bool have_deselected_source = !current_source_id_.empty();
@@ -335,7 +361,8 @@ AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
               have_deselected_source ? "<NONE>" : current_source_id_.c_str(),
               kill_player ? "deactivate" : "keep");
 
-    deselect_source(paths, request_data, current_source_id_, pending_);
+    deselected_result =
+        deselect_source(paths, request_data, current_source_id_, pending_);
 
     if(have_deactivated_player)
         deactivate_player(paths, request_data, current_player_id_);
@@ -344,9 +371,9 @@ AudioPath::Switch::release_path(const AudioPath::Paths &paths, bool kill_player,
 
     return (have_deselected_source
             ? (have_deactivated_player
-               ? AudioPath::Switch::ReleaseResult::COMPLETE_RELEASE
-               : AudioPath::Switch::ReleaseResult::SOURCE_DESELECTED)
+               ? ReleaseResult::COMPLETE_RELEASE
+               : ReleaseResult::SOURCE_DESELECTED)
             : (have_deactivated_player
-               ? AudioPath::Switch::ReleaseResult::PLAYER_DEACTIVATED
-               : AudioPath::Switch::ReleaseResult::UNCHANGED));
+               ? ReleaseResult::PLAYER_DEACTIVATED
+               : ReleaseResult::UNCHANGED));
 }

@@ -60,6 +60,13 @@ class Switch
         UNCHANGED,
     };
 
+    enum class DeselectedAudioSourceResult
+    {
+        NONE,
+        DESELECTED_ACTIVE,
+        DESELECTED_PENDING,
+    };
+
     struct PendingActivation
     {
       private:
@@ -140,10 +147,12 @@ class Switch
 
     ActivateResult activate_source(const Paths &paths, const char *source_id,
                                    const std::string *&player_id,
+                                   DeselectedAudioSourceResult &deselected_result,
                                    bool select_source_now);
 
     ActivateResult activate_source(const Paths &paths, const char *source_id,
                                    const std::string *&player_id,
+                                   DeselectedAudioSourceResult &deselected_result,
                                    bool select_source_now,
                                    GVariantWrapper &&request_data);
 
@@ -162,15 +171,25 @@ class Switch
 
     /*!
      * Cancel deferred audio path activation, if any.
+     *
+     * \retval #AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED
+     *         The pending source activation has been canceled.
+     * \retval #AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED
+     *         The pending source activation has been canceled, but the audio
+     *         source owner couldn't be notified about it.
+     * \retval #AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN
+     *         There was no pending activation.
      */
     ActivateResult cancel_pending_source_activation(const Paths &paths,
                                                     std::string &source_id);
 
     ReleaseResult release_path(const Paths &paths, bool kill_player,
-                               const std::string *&player_id);
+                               const std::string *&player_id,
+                               DeselectedAudioSourceResult &deselected_result);
 
     ReleaseResult release_path(const Paths &paths, bool kill_player,
                                const std::string *&player_id,
+                               DeselectedAudioSourceResult &deselected_result,
                                GVariantWrapper &&request_data);
 
     const std::string &get_source_id() const { return current_source_id_; }
