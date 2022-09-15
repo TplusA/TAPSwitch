@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020, 2021  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2020, 2021, 2022  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of TAPSwitch.
 #
@@ -20,7 +20,7 @@
 #
 
 project('TAPSwitch', ['cpp', 'c'],
-    version: '1.8',
+    version: '1.9',
     default_options: ['warning_level=3', 'cpp_std=c++14', 'buildtype=plain']
 )
 

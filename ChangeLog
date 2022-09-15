@@ -1,3 +1,10 @@
+2022-09-15  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 1.9 released.
+
+	* Misc: Fix a few compiler warnings and warnings from other tools.
+	  These are a purely maintenance changes.
+
 2021-08-23  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 1.8 released.
@@ -108,4 +115,4 @@
 	  functional
 
 
-Copyright 2017, 2018, 2020, 2021 T+A elektroakustik GmbH & Co. KG
+Copyright 2017, 2018, 2020, 2021, 2022 T+A elektroakustik GmbH & Co. KG
