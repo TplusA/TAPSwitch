@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020--2022  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -475,7 +475,7 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for same player kills audio
     expect<MockAudiopathDBus::SourceDeselectedSync>(mock_audiopath_dbus, true, aupath_source_proxy('B'), "srcB1");
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, false, aupath_source_proxy('A'), "srcA1");
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_EMERG,
-            "Select source: Got g-io-error-quark error: Mock source A selection failure",
+            "Select source: Got g-io-error-quark error 0: Mock source A selection failure",
             false);
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcA1 failed", false);
@@ -530,7 +530,7 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing source for other player kills audi
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, false, aupath_source_proxy('C'), "srcC2");
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_EMERG,
-            "Select source: Got g-io-error-quark error: Mock source C selection failure",
+            "Select source: Got g-io-error-quark error 0: Mock source C selection failure",
             false);
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed", false);
@@ -584,7 +584,7 @@ TEST_CASE_FIXTURE(Fixture, "Switch to failing player kills audio path completely
     expect<MockAudiopathDBus::PlayerDeactivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('1'));
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, false, aupath_player_proxy('2'));
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_EMERG,
-            "Activate player: Got g-io-error-quark error: Mock player 2 activation failure",
+            "Activate player: Got g-io-error-quark error 0: Mock player 2 activation failure",
             false);
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Activating player pl2 failed", false);
@@ -737,7 +737,7 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can deac
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, false, aupath_source_proxy('C'), "srcC2");
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_EMERG,
-            "Select source: Got g-io-error-quark error: Mock source C selection failure",
+            "Select source: Got g-io-error-quark error 0: Mock source C selection failure",
             false);
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed", false);
@@ -774,7 +774,7 @@ TEST_CASE_FIXTURE(Fixture, "Releasing nonactive path with active player can keep
     expect<MockAudiopathDBus::PlayerActivateSync>(mock_audiopath_dbus, true, aupath_player_proxy('2'));
     expect<MockAudiopathDBus::SourceSelectedSync>(mock_audiopath_dbus, false, aupath_source_proxy('C'), "srcC2");
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_EMERG,
-            "Select source: Got g-io-error-quark error: Mock source C selection failure",
+            "Select source: Got g-io-error-quark error 0: Mock source C selection failure",
             false);
     expect<MockMessages::MsgError>(mock_messages, 0, LOG_ERR,
             "AUDIO SOURCE SWITCH: Selecting audio source srcC2 failed", false);
