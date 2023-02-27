@@ -413,14 +413,14 @@ gboolean dbusmethod_aupath_request_source(tdbusaupathManager *object,
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_UNKNOWN:
         g_dbus_method_invocation_return_error_literal(invocation,
                                                       G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
-                                                      "Source unknown");
+                                                      "Audio source unknown");
         suppress_activated_signal = true;
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_SOURCE_FAILED:
         g_dbus_method_invocation_return_error_literal(invocation,
                                                       G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
-                                                      "Source process failed");
+                                                      "Audio source process failed");
         break;
 
       case AudioPath::Switch::ActivateResult::ERROR_PLAYER_UNKNOWN:
