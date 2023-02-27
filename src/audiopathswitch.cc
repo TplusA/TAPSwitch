@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -83,8 +83,8 @@ deselect_source(const AudioPath::Paths &paths,
                 const GVariantWrapper &request_data, std::string &source_id,
                 AudioPath::Switch::PendingActivation &pending)
 {
-    BUG_IF(!source_id.empty() && pending.have_pending_activation(),
-           "deselect source: have source ID and pending activation");
+    MSG_BUG_IF(!source_id.empty() && pending.have_pending_activation(),
+               "deselect source: have source ID and pending activation");
 
     if(source_id.empty() && !pending.have_pending_activation())
         return AudioPath::Switch::DeselectedAudioSourceResult::NONE;
@@ -188,7 +188,7 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
         msg_vinfo(MESSAGE_LEVEL_DEBUG,
                   "%sAudio source not changed", debug_prefix);
         player_id = &current_player_id_;
-        log_assert(!pending_.have_pending_activation());
+        msg_log_assert(!pending_.have_pending_activation());
         return ActivateResult::OK_UNCHANGED;
     }
 
@@ -231,7 +231,7 @@ AudioPath::Switch::activate_source(const AudioPath::Paths &paths,
         return result;
     }
     else
-        log_assert(path.first != nullptr);
+        msg_log_assert(path.first != nullptr);
 
     player_id = &path.second->id_;
 

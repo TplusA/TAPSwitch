@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -56,7 +56,7 @@ void mk_proxy_done<RegisterPlayerCallback>(GObject *source_object, GAsyncResult 
     }
     catch(...)
     {
-        BUG("Exception from AudioPath.Player proxy-done callback (ignored)");
+        MSG_BUG("Exception from AudioPath.Player proxy-done callback (ignored)");
     }
 
     delete proxy_done_cb;
@@ -104,7 +104,7 @@ void mk_proxy_done<RegisterSourceCallback>(GObject *source_object, GAsyncResult 
     }
     catch(...)
     {
-        BUG("Exception from AudioPath.Source proxy-done callback (ignored)");
+        MSG_BUG("Exception from AudioPath.Source proxy-done callback (ignored)");
     }
 
     delete proxy_done_cb;
@@ -301,7 +301,7 @@ static void emit_path_switch_signal(tdbusaupathManager *object,
 {
     if(success)
     {
-        log_assert(player_id != nullptr);
+        msg_log_assert(player_id != nullptr);
 
         if(is_deferred)
             tdbus_aupath_manager_emit_path_deferred(object, source_id,
@@ -336,7 +336,7 @@ static void complete_pending_call(
     auto *object = static_cast<tdbusaupathManager *>(pending.object_);
     auto *invocation = static_cast<GDBusMethodInvocation *>(pending.invocation_);
 
-    log_assert(object != nullptr && invocation != nullptr);
+    msg_log_assert(object != nullptr && invocation != nullptr);
 
     if(error_message == nullptr)
         tdbus_aupath_manager_complete_request_source(object, invocation,
@@ -869,7 +869,7 @@ static void cancel_pending_audio_source_activation(DBus::HandlerData &data)
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME:
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SAME_SOURCE_DEFERRED:
       case AudioPath::Switch::ActivateResult::OK_PLAYER_SWITCHED_SOURCE_DEFERRED:
-        BUG("Unexpected cancel result %d", int(result));
+        MSG_BUG("Unexpected cancel result %d", int(result));
         break;
     }
 }

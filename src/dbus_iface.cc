@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018, 2020, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2017, 2018, 2020, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of TAPSwitch.
  *
@@ -185,10 +185,10 @@ int dbus_setup(GMainLoop *loop, bool connect_to_session_bus,
         return -1;
     }
 
-    log_assert(dbus_data.audiopath_manager_iface != nullptr);
-    log_assert(dbus_data.audiopath_appliance_iface != nullptr);
-    log_assert(dbus_data.debug_logging_iface != nullptr);
-    log_assert(dbus_data.debug_logging_config_proxy != nullptr);
+    msg_log_assert(dbus_data.audiopath_manager_iface != nullptr);
+    msg_log_assert(dbus_data.audiopath_appliance_iface != nullptr);
+    msg_log_assert(dbus_data.debug_logging_iface != nullptr);
+    msg_log_assert(dbus_data.debug_logging_config_proxy != nullptr);
 
     g_signal_connect(dbus_data.debug_logging_config_proxy, "g-signal",
                      G_CALLBACK(msg_dbus_handle_global_debug_level_changed),
