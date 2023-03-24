@@ -10,4 +10,5 @@
 /GTAGS
 /tags
 /*.taghl
+/.gitreview
 Makefile.in
